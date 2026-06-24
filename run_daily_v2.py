@@ -1,0 +1,78 @@
+import os
+import sys
+from datetime import datetime
+from generate_report import parse_raw_text, create_report_document
+from send_email import send_report_email
+
+def read_today_report(file_path):
+    """Reads today_report.txt as-is (존댓말 서술형 본문)."""
+    if not os.path.exists(file_path):
+        return None
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read().strip()
+    return content if content else None
+
+def generate_email_body(text):
+    """Clean up text paragraphs to ensure double newlines between sections, and single newlines within sections."""
+    import re
+    # Split the input text into paragraphs by blank lines (handling potential multiple blank lines)
+    paragraphs = re.split(r'\n\s*\n', text.strip())
+    cleaned_paragraphs = []
+    for p in paragraphs:
+        # Strip each line inside the paragraph, remove empty lines
+        lines = [line.strip() for line in p.splitlines() if line.strip()]
+        if lines:
+            cleaned_paragraphs.append("\n".join(lines))
+    return "\n\n".join(cleaned_paragraphs)
+
+
+def main():
+    workspace_dir = os.path.dirname(os.path.abspath(__file__))
+    input_file = os.path.join(workspace_dir, "today_report.txt")
+    
+    # 1. Read report text
+    report_text = read_today_report(input_file)
+    if not report_text:
+        print("[오류] today_report.txt 파일을 읽을 수 없거나 비어 있습니다.")
+        sys.exit(1)
+        
+    # 2. Extract date/title from report_text for subject and file name
+    first_line = report_text.split('\n')[0].strip()
+    title_val = ""
+    if first_line.lower().startswith('title'):
+        colon_idx = first_line.find(':')
+        if colon_idx != -1:
+            title_val = first_line[colon_idx + 1:].strip()
+            
+    today_str = datetime.now().strftime("%Y%m%d")
+    # If title_val contains a date like 6/2 or 06/02, try to use it for doc name
+    doc_date_str = today_str
+    if title_val:
+        import re
+        match = re.search(r'\((\d+)/(\d+)\)', title_val)
+        if match:
+            month = match.group(1).zfill(2)
+            day = match.group(2).zfill(2)
+            doc_date_str = f"{datetime.now().year}{month}{day}"
+            
+    output_filename = f"Daily_Market_Report_Official_{doc_date_str}.docx"
+    output_file = os.path.join(workspace_dir, output_filename)
+    
+    # 3. Build Word Document
+    structured_data = parse_raw_text(report_text)
+    create_report_document(structured_data, output_file)
+    
+    # 4. Build Email Body (use report text directly)
+    email_body = report_text.strip()
+    
+    # 5. Send Email
+    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+    if title_val:
+        subject = f"[시황 보고서] {title_val}"
+    else:
+        subject = f"[시황 보고서] 아시아 및 국내 증시 시황 ({datetime.now().strftime('%m/%d')})"
+    
+    send_report_email(recipients, subject, email_body, output_file)
+
+if __name__ == '__main__':
+    main()

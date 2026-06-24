@@ -1,0 +1,72 @@
+name: Daily Market Report Automation
+
+on:
+  schedule:
+    # 08:45 KST is 23:45 UTC of the previous day
+    - cron: '45 23 * * *'
+    # 16:00 KST is 07:00 UTC
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+    inputs:
+      report_type:
+        description: 'Report type to run (global / asia / auto)'
+        required: true
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - global
+          - asia
+
+jobs:
+  run-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Daily Report Script
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PERSONAL_GMAIL_USER: ${{ secrets.PERSONAL_GMAIL_USER }}
+          PERSONAL_GMAIL_PASSWORD: ${{ secrets.PERSONAL_GMAIL_PASSWORD }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: |
+          python -c "
+          import datetime, subprocess, sys
+          
+          # Get manual input or auto-detect based on current KST hour
+          report_type = '${{ github.event.inputs.report_type }}'
+          if not report_type or report_type == 'auto':
+              # Determine KST time (UTC + 9)
+              kst_now = datetime.datetime.utcnow() + datetime.timedelta(hours=9)
+              kst_hour = kst_now.hour
+              print(f'Current KST time: {kst_now.strftime(\"%Y-%m-%d %H:%M:%S\")}')
+              if kst_hour < 12:
+                  report_type = 'global'
+              else:
+                  report_type = 'asia'
+          
+          print(f'Triggered report type: {report_type}')
+          
+          if report_type == 'global':
+              print('Running run_financial_cron.py (Global/US Market Report)...')
+              subprocess.run(['python', 'run_financial_cron.py'], check=True)
+          elif report_type == 'asia':
+              print('Running run_daily_cron.py (Asia Market Report)...')
+              subprocess.run(['python', 'run_daily_cron.py'], check=True)
+          else:
+              print(f'Unknown report type: {report_type}')
+              sys.exit(1)
+          "

@@ -1,0 +1,21 @@
+# Virtual Environment
+venv/
+.venv/
+
+# Environment Variables
+.env
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Local Logs / Temporary Files
+automation_log.txt
+automation_log_financial.txt
+sent_email_check.html
+temp_outlook.html
+chrome_temp_profile/
+chrome_temp_cache/
+
+# Generated Word Documents
+*.docx
