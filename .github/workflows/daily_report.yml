@@ -2,8 +2,8 @@ name: Daily Market Report Automation
 
 on:
   schedule:
-    # 08:45 KST is 23:45 UTC of the previous day
-    - cron: '45 23 * * *'
+    # 08:10 KST is 23:10 UTC of the previous day
+    - cron: '10 23 * * *'
     # 16:00 KST is 07:00 UTC
     - cron: '0 7 * * *'
   workflow_dispatch:
