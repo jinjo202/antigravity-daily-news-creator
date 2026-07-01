@@ -1,6 +1,9 @@
 name: Daily Market Report Automation
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     # 08:10 KST is 23:10 UTC of the previous day
     - cron: '10 23 * * *'
