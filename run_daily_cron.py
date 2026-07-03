@@ -431,8 +431,10 @@ def main():
     if report_updated:
         log("Executing run_daily_v2.py to generate document and send email...")
         try:
-            # We must use the venv python
+            # We must use the venv python locally, fallback to sys.executable for GitHub Actions
             venv_python = os.path.join(workspace_dir, "venv", "Scripts", "python.exe")
+            if not os.path.exists(venv_python):
+                venv_python = sys.executable
             v2_script = os.path.join(workspace_dir, "run_daily_v2.py")
             
             res = subprocess.run(
