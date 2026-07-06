@@ -363,12 +363,13 @@ def main():
     if os.path.exists(today_report_path):
         mtime = datetime.fromtimestamp(os.path.getmtime(today_report_path))
         if mtime.strftime("%Y-%m-%d") == today_date:
-            # Check if it has today's content
-            with open(today_report_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            if today_short_slash in content or today_date in content:
-                log("today_report.txt is already updated with today's content. Using it directly.")
-                report_updated = True
+            # Only reuse if generated in the last 30 minutes to prevent using stale morning runs in the afternoon
+            if datetime.now() - mtime < timedelta(minutes=30):
+                with open(today_report_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                if today_short_slash in content or today_date in content:
+                    log("today_report.txt was updated in the last 30 minutes. Using it directly.")
+                    report_updated = True
 
     # Step 2: If not updated, search for today's .eml file
     if not report_updated:

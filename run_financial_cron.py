@@ -382,15 +382,16 @@ def main():
         else:
             log("[Error] Sample EML file not found.")
 
-    # Step 1: Check if us_today_report.txt is already updated for today
     if not report_updated and os.path.exists(us_today_report_path):
         mtime = datetime.fromtimestamp(os.path.getmtime(us_today_report_path))
         if mtime.strftime("%Y-%m-%d") == today_date:
-            with open(us_today_report_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            if today_short_slash in content or today_date in content:
-                log("us_today_report.txt is already updated with today's content. Using it directly.")
-                report_updated = True
+            # Only reuse if generated in the last 30 minutes to prevent using stale files
+            if datetime.now() - mtime < timedelta(minutes=30):
+                with open(us_today_report_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                if today_short_slash in content or today_date in content:
+                    log("us_today_report.txt was updated in the last 30 minutes. Using it directly.")
+                    report_updated = True
 
     # Step 2: If not updated, search for today's .eml file
     if not report_updated:
