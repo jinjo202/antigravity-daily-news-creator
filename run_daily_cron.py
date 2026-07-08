@@ -298,11 +298,12 @@ def generate_report_with_gemini(report_type):
 반드시 아래의 양식과 정보를 포함해야 합니다.
 
 1. 제목 형식: **Title** : 아시아 시황({today_short_slash})
+   다만, 실행 기준 한국 시간(KST)이 15시 00분 이전인 경우(장중)에는 반드시 제목을 **Title** : [초안] 아시아 시황({today_short_slash}) 으로 표기하고 본문 첫머리 및 각 표에 '장중 잠정' 또는 '잠정치'임을 명시하시오.
 2. 첫 줄: "금일 아시아 증시 시황 보고 드립니다."
 3. 둘째 줄: 아시아 증시 전체 요약 (한 줄 또는 두 줄)
 4. 셋째 줄: 연초대비 등락 요약 라인
    형식: ※ {today_short_slash}(연초대비): 한국 등락률(연초대비등락률), 일본 등락률(연초대비등락률), 중국 등락률(연초대비등락률)
-   예시: ※ 6.18(연초대비): 한국 +2.3%(+115.1), 일본 +1.7%(+41.1), 중국 △0.2%(+3.3)
+   예시: ※ 6.18(연초대비): 한국 +2.3%(+115.1), 일본 +1.7%(+41.1), 중국 △0.2%(+2.3)
    (등락률 기호: 상승은 +, 하락은 △ 기호를 사용하세요. 연초대비등락률도 동일하게 기호를 붙이세요.)
 5. 본문 문단들:
    - 한국 증시 마감 상황 (코스피/코스닥 지수 및 등락률, 장중 특이사항)
@@ -312,8 +313,14 @@ def generate_report_with_gemini(report_type):
    - 원/달러 환율 및 국채(10년) 금리 마감 수치
 6. 마지막 줄: "감사합니다."
 
-중요 규칙:
-- 가짜 정보를 적지 말고, Google Search 결과를 사용하여 오늘({today_date}) 실제 마감된 지수와 뉴스를 정확하게 반영하세요.
+중요 규칙 (필수 준수):
+- 어떠한 상황에서도 "데이터가 없다", "확인되지 않는다", "제공하기 어렵다", "검색이 불가능하다" 등의 거절 표현이나 사과 문구를 쓰지 마십시오.
+- 만약 특정 시점(예: 장중 또는 마감 직후)에 일부 지수의 마감 수치를 바로 검색할 수 없다면, 실시간 가격/가장 최근 가격/장중 가격을 사용하여 자연스럽게 보고서를 완성하십시오.
+- 연초대비(YTD) 등락률은 뉴스 검색 결과에 직접 나오지 않더라도 아래의 2025년 말 종가 기준을 참고하여 오늘 수치와 직접 계산하여 반드시 소수점 첫째짜리까지 기입하십시오.
+  * 한국(코스피) 연초대비 기준값: 4214.17
+  * 일본(니케이225) 연초대비 기준값: 50339.48
+  * 중국(상해종합) 연초대비 기준값: 3968.84
+  * 계산법: ((오늘 종가 - 기준값) / 기준값) * 100
 - 만약 Google Finance 등 특정 금융 서비스에서 오늘 자 수치를 조회할 수 없거나 누락되어 있는 경우, Investing.com, Yahoo Finance 등 다른 공신력 있는 글로벌 금융 정보 사이트들의 최신 수치를 반드시 교차 참고하여 빈칸(공란)이나 누락 없이 모든 지수와 환율/금리 수치를 확실하게 기입하십시오.
 - 각 본문 문장 사이에 불필요한 빈 줄을 남발하지 말고 콤팩트하게 작성하세요.
 - 존댓말 서술형 본문으로 자연스럽게 작성하세요.
@@ -442,11 +449,11 @@ def main():
                 [venv_python, v2_script],
                 cwd=workspace_dir, capture_output=True, text=True
             )
-            log("Execution Output:\n" + res.stdout)
+            log("Execution Output:\n" + (res.stdout or ""))
             if res.returncode == 0:
                 log("[SUCCESS] Daily Market Report generated and emailed successfully!")
             else:
-                log(f"[ERROR] run_daily_v2.py failed with exit code {res.returncode}. Stderr: {res.stderr}")
+                log(f"[ERROR] run_daily_v2.py failed with exit code {res.returncode}. Stderr: {res.stderr or ''}")
         except Exception as ex:
             log(f"[ERROR] Failed to execute run_daily_v2.py: {ex}")
     else:
