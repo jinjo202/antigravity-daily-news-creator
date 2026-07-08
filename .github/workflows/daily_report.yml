@@ -5,10 +5,10 @@ on:
     branches:
       - main
   schedule:
-    # 08:10 KST is 23:10 UTC of the previous day
-    - cron: '10 23 * * *'
-    # 15:45 KST is 06:45 UTC
-    - cron: '45 6 * * *'
+    # 08:08 KST is 23:08 UTC of the previous day
+    - cron: '8 23 * * *'
+    # 15:43 KST is 06:43 UTC
+    - cron: '43 6 * * *'
   workflow_dispatch:
     inputs:
       report_type:
