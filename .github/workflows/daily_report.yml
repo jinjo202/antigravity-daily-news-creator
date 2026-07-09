@@ -5,8 +5,8 @@ on:
     branches:
       - main
   schedule:
-    # 08:08 KST is 23:08 UTC of the previous day
-    - cron: '8 23 * * *'
+    # 07:05 KST is 22:05 UTC of the previous day
+    - cron: '5 22 * * *'
     # 14:22 KST is 05:22 UTC (Draft Report)
     - cron: '22 5 * * *'
     # 15:43 KST is 06:43 UTC

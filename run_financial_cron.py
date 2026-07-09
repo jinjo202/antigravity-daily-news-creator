@@ -359,9 +359,73 @@ def generate_report_with_gemini(report_type):
         log(f"[Gemini ERROR] Failed to call Gemini API: {e}")
         return None
 
+def check_already_sent(subject_keyword):
+    """Checks Gmail Sent Mail to see if an email with subject_keyword was already sent today in KST."""
+    load_env_file(os.path.join(workspace_dir, ".env"))
+    gmail_user = os.getenv("PERSONAL_GMAIL_USER") or "devbotsender8282@gmail.com"
+    gmail_password = os.getenv("PERSONAL_GMAIL_PASSWORD") or "lvjayqklnrkofjbj"
+    
+    try:
+        log(f"[Duplicate Check] Connecting to Sent Mail to check for keyword '{subject_keyword}'...")
+        mail = imaplib.IMAP4_SSL("imap.gmail.com")
+        mail.login(gmail_user, gmail_password)
+        mail.select('"[Gmail]/Sent Mail"')
+        
+        yesterday_str = (datetime.now() - timedelta(days=1)).strftime("%d-%b-%Y")
+        status, messages = mail.search(None, f'SINCE {yesterday_str}')
+        if status != "OK":
+            mail.logout()
+            return False
+            
+        mail_ids = messages[0].split()
+        for mail_id in reversed(mail_ids):
+            mid_str = mail_id.decode('utf-8')
+            status, data = mail.fetch(mid_str, "(BODY[HEADER.FIELDS (SUBJECT DATE)])")
+            for response_part in data:
+                if isinstance(response_part, tuple):
+                    msg = email.message_from_bytes(response_part[1])
+                    subject_header = msg.get("Subject")
+                    subject = ""
+                    if subject_header:
+                        decoded = decode_header(subject_header)
+                        for part, encoding in decoded:
+                            if isinstance(part, bytes):
+                                subject += part.decode(encoding or "utf-8", errors="ignore")
+                            else:
+                                subject += part
+                    
+                    if subject_keyword in subject:
+                        date_header = msg.get("Date")
+                        if date_header:
+                            try:
+                                parsed_dt = email.utils.parsedate_to_datetime(date_header)
+                                kst = timezone(timedelta(hours=9))
+                                parsed_dt_kst = parsed_dt.astimezone(kst)
+                                today_kst = datetime.now(kst).date()
+                                if parsed_dt_kst.date() == today_kst:
+                                    log(f"[Duplicate Check] Already sent today: {subject} at {parsed_dt_kst}")
+                                    mail.close()
+                                    mail.logout()
+                                    return True
+                            except Exception as ex:
+                                log(f"[Warning] Failed to parse sent date: {ex}")
+        mail.close()
+        mail.logout()
+        return False
+    except Exception as e:
+        log(f"[Duplicate Check Error] {e}")
+        return False
+
 def main():
     log("=== US Daily Market Report Automation Start ===")
     
+    # Check if duplicate run
+    is_forced = "--force" in sys.argv
+    if not is_forced and check_already_sent("[일일 금융시장 동향]"):
+        log("US Daily Market Report already sent today. Skipping.")
+        log("=== US Daily Market Report Automation End ===\n")
+        return
+        
     today_date = datetime.now().strftime("%Y-%m-%d")
     month_val = str(int(datetime.now().strftime("%m")))
     day_val = str(int(datetime.now().strftime("%d")))
