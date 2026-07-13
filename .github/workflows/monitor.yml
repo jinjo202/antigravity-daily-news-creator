@@ -1,0 +1,58 @@
+name: Public Disclosure Monitor
+
+on:
+  schedule:
+    # 30분 간격 실행 (UTC 기준)
+    - cron: '15,45 * * * *'
+  workflow_dispatch: # 수동 실행 지원
+
+jobs:
+  run-monitor:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # 이력 파일 Auto Commit & Push를 위해 쓰기 권한 명시
+    defaults:
+      run:
+        working-directory: ./dart-mail-sender
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.14'
+        cache: 'pip'
+        cache-dependency-path: 'dart-mail-sender/requirements.txt'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install beautifulsoup4
+
+    - name: Create .env File from Secrets
+      run: |
+        echo "DART_API_KEY=${{ secrets.DART_API_KEY }}" > .env
+        echo "RECIPIENT_EMAILS=${{ secrets.RECIPIENT_EMAILS }}" >> .env
+        echo "TRENDFORCE_RECIPIENT_EMAILS=${{ secrets.TRENDFORCE_RECIPIENT_EMAILS }}" >> .env
+        echo "POLL_INTERVAL_MINUTES=5" >> .env
+        echo "TRENDFORCE_SEND_HOUR=8" >> .env
+        echo "TRENDFORCE_SEND_MINUTE=0" >> .env
+        echo "TRENDFORCE_HOLIDAY_ONLY=true" >> .env
+
+    - name: Run Disclosure Monitor
+      run: |
+        # UTF-8 인코딩 활성화 및 1회성 스윕 실행
+        python -X utf8 main.py --once
+
+    - name: Commit & Push Changes (History Database)
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # 변경사항 체크 및 커밋/푸시
+        git status --porcelain
+        git add processed_disclosures.txt pending_reminders.json
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Update disclosure history [skip ci]" && git push)

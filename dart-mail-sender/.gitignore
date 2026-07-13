@@ -1,0 +1,29 @@
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local Configurations (CRITICAL: Do not upload credentials!)
+.env
+
+# Chrome Browser Profiles
+chrome_profile/
+chrome_profile_infomax/
+chrome_profile_ocarr/
+
+# Local Output & Debug Files
+app.log
+check_output.txt
+*.png
+*.pdf
+*.html
+
+# IDE Settings
+.vscode/
+.idea/
