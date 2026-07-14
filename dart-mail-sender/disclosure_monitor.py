@@ -443,24 +443,12 @@ class DisclosureMonitor:
 
         for key, item in list(self._reminders.items()):
             standard_date = item.get("standard_date")
-            next_business_day = self.get_next_business_day(standard_date)
-            is_weekend_holiday = (next_business_day != standard_date)
+            target_send_date = self.get_previous_business_day(standard_date)
 
-            should_send = False
-            is_business_day_after_weekend = False
-
-            # 1. 배당 기준일 당일인 경우
-            if today_str == standard_date:
-                should_send = True
-                print(f"[{time_str}]    🔔 [당일 알림] 오늘 배당기준일 포착: {item['corp_name']} - {item['report_nm']} (기준일: {standard_date})")
-            
-            # 2. 주말인 경우 그 다음 영업일인 경우
-            elif is_weekend_holiday and today_str == next_business_day:
-                should_send = True
-                is_business_day_after_weekend = True
-                print(f"[{time_str}]    🔔 [다음 영업일 알림] 주말 배당기준일 다음 영업일 포착: {item['corp_name']} - {item['report_nm']} (기준일: {standard_date}, 오늘: {today_str})")
+            should_send = (today_str == target_send_date)
 
             if should_send:
+                print(f"[{time_str}]    🔔 [전날 알림] 오늘 리마인드 발송 대상 포착 (기준일: {standard_date}, 오늘(1영업일전): {today_str})")
                 success = False
                 if item["type"] == "dart":
                     disc = Disclosure.from_dict(item["data"])
@@ -478,15 +466,7 @@ class DisclosureMonitor:
 
                 if success:
                     print(f"[{time_str}]    ✅ [리마인드] 이메일 발송 성공!")
-                    
-                    # 당일 발송 완료 후, 다음 영업일 발송이 필요 없는 평일인 경우에만 바로 삭제
-                    # 혹은 다음 영업일 발송까지 완료한 경우에 삭제
-                    if not is_weekend_holiday or is_business_day_after_weekend:
-                        targets_to_delete.append(key)
-                    else:
-                        # 주말 기준일의 당일 발송인 경우, 다음 영업일에도 발송해야 하므로 상태를 기록하고 삭제하지 않음
-                        item["sent_on_date"] = True
-                        reminders_updated = True
+                    targets_to_delete.append(key)
                 else:
                     print(f"[{time_str}]    ❌ [리마인드] 이메일 발송 실패")
 
@@ -683,3 +663,38 @@ class DisclosureMonitor:
 
             # 휴일이면 하루 뒤로 전진
             date_obj += timedelta(days=1)
+
+    def get_previous_business_day(self, start_date_str: str) -> str:
+        """주어진 날짜의 직전 비즈니스 데이(평일)를 계산하여 반환합니다.
+        예컨대 월요일인 경우 직전 금요일을 반환하고, 공휴일인 경우 그 전 영업일을 반환합니다.
+        """
+        from datetime import datetime, timedelta
+        try:
+            date_obj = datetime.strptime(start_date_str, "%Y-%m-%d")
+        except ValueError:
+            return start_date_str
+
+        # 2026년 한국 법정 공휴일 (대체공휴일 포함)
+        holidays = {
+            "2026-01-01",  # 신정
+            "2026-02-16", "2026-02-17", "2026-02-18",  # 설날 연휴
+            "2026-03-01", "2026-03-02",  # 삼일절 및 대체공휴일
+            "2026-05-05",  # 어린이날
+            "2026-05-24", "2026-05-25",  # 부처님오신날 및 대체공휴일
+            "2026-06-06",  # 현충일
+            "2026-08-15", "2026-08-17",  # 광복절 및 대체공휴일
+            "2026-09-24", "2026-09-25", "2026-09-26",  # 추석 연휴
+            "2026-10-03",  # 개천절
+            "2026-10-09",  # 한글날
+            "2026-12-25"   # 성탄절
+        }
+
+        while True:
+            # 하루 앞으로 후퇴
+            date_obj -= timedelta(days=1)
+            is_weekend = date_obj.weekday() in [5, 6]
+            current_str = date_obj.strftime("%Y-%m-%d")
+            is_holiday = current_str in holidays
+
+            if not is_weekend and not is_holiday:
+                return current_str
