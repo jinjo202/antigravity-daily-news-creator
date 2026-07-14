@@ -56,4 +56,4 @@ jobs:
         git status --porcelain
         if [ -f processed_disclosures.txt ]; then git add processed_disclosures.txt; fi
         if [ -f pending_reminders.json ]; then git add pending_reminders.json; fi
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Update disclosure history [skip ci]" && git push)
+        git diff --cached --quiet || (git commit -m "Update disclosure history [skip ci]" && git push)
