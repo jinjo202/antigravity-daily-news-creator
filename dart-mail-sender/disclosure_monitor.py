@@ -443,12 +443,17 @@ class DisclosureMonitor:
 
         for key, item in list(self._reminders.items()):
             standard_date = item.get("standard_date")
-            target_send_date = self.get_previous_business_day(standard_date)
+            prev_bday = self.get_previous_business_day(standard_date)
+            next_bday = self.get_next_business_day(standard_date)
 
-            should_send = (today_str == target_send_date)
+            is_t1_day = (today_str == prev_bday) and not item.get("sent_t1", False)
+            is_same_day = (today_str == standard_date) or (today_str == next_bday and next_bday != standard_date)
+
+            should_send = is_t1_day or is_same_day
+            rem_type_label = "[T-1일 전날 알림]" if is_t1_day else "[당일 알림]"
 
             if should_send:
-                print(f"[{time_str}]    🔔 [전날 알림] 오늘 리마인드 발송 대상 포착 (기준일: {standard_date}, 오늘(1영업일전): {today_str})")
+                print(f"[{time_str}]    🔔 {rem_type_label} 리마인드 발송 대상 포착 (기준일: {standard_date}, 오늘: {today_str})")
                 success = False
                 if item["type"] == "dart":
                     disc = Disclosure.from_dict(item["data"])
@@ -465,10 +470,14 @@ class DisclosureMonitor:
                     )
 
                 if success:
-                    print(f"[{time_str}]    ✅ [리마인드] 이메일 발송 성공!")
-                    targets_to_delete.append(key)
+                    print(f"[{time_str}]    ✅ {rem_type_label} 이메일 발송 성공!")
+                    if is_t1_day:
+                        item["sent_t1"] = True
+                        reminders_updated = True
+                    if is_same_day:
+                        targets_to_delete.append(key)
                 else:
-                    print(f"[{time_str}]    ❌ [리마인드] 이메일 발송 실패")
+                    print(f"[{time_str}]    ❌ {rem_type_label} 이메일 발송 실패")
 
         if targets_to_delete:
             for key in targets_to_delete:
