@@ -275,6 +275,75 @@ def retrieve_from_gmail_imap(subject_keyword, output_file_path):
         log(f"[IMAP ERROR] Failed to retrieve email: {e}")
         return False
 
+def get_samsung_group_stocks_line():
+    import urllib.request
+    import json
+    url = "https://polling.finance.naver.com/api/realtime/domestic/stock/005930,000810,032830"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            items = data.get("datas", [])
+            stock_map = {item.get("itemCode"): item for item in items}
+            
+            def format_ratio(ratio_str):
+                if ratio_str is None:
+                    return "확인불가"
+                try:
+                    val = float(ratio_str)
+                    if val > 0:
+                        return f"+{val:.2f}%"
+                    elif val < 0:
+                        return f"△{abs(val):.2f}%"
+                    else:
+                        return "0.00%"
+                except:
+                    return "확인불가"
+            
+            전자 = format_ratio(stock_map.get("005930", {}).get("fluctuationsRatio"))
+            화재 = format_ratio(stock_map.get("000810", {}).get("fluctuationsRatio"))
+            생명 = format_ratio(stock_map.get("032830", {}).get("fluctuationsRatio"))
+            
+            return f"(전자 {전자}, 화재 {화재}, 생명 {생명})"
+    except Exception as e:
+        log(f"[Error fetching Samsung stocks] {e}")
+        return None
+
+def post_process_report(report_text):
+    import re
+    naver_line = get_samsung_group_stocks_line()
+    if not naver_line:
+        return report_text
+    
+    # Check if (전자 ...) line already exists
+    pattern = r'\(전자[^)]*화재[^)]*생명[^)]*\)'
+    if re.search(pattern, report_text):
+        report_text = re.sub(pattern, naver_line, report_text)
+    else:
+        # Look for the start of the next section
+        start_idx = -1
+        for h in ['**한국 증시 마감 상황**', '**한국 증시 장중 상황**', '한국 증시 마감 상황', '한국 증시 장중 상황']:
+            start_idx = report_text.find(h)
+            if start_idx != -1:
+                break
+        
+        if start_idx != -1:
+            next_header = re.search(r'\n\s*(\*\*삼성전자|\*\* 주요 대형주|\*\*삼성전자, SK하이닉스|\*\*삼성전자/SK하이닉스|삼성전자, SK하이닉스)', report_text[start_idx:])
+            if next_header:
+                insert_idx = start_idx + next_header.start()
+                report_text = report_text[:insert_idx].rstrip() + f"\n{naver_line}\n\n" + report_text[insert_idx:].lstrip()
+            else:
+                thanks_idx = report_text.find("감사합니다")
+                if thanks_idx != -1:
+                    report_text = report_text[:thanks_idx].rstrip() + f"\n\n{naver_line}\n\n" + report_text[thanks_idx:]
+        else:
+            thanks_idx = report_text.find("감사합니다")
+            if thanks_idx != -1:
+                report_text = report_text[:thanks_idx].rstrip() + f"\n\n{naver_line}\n\n" + report_text[thanks_idx:]
+                
+    return report_text
+
 def generate_report_with_gemini(report_type):
     """Generates market report using Gemini API with Google Search grounding."""
     load_env_file(os.path.join(workspace_dir, ".env"))
@@ -314,6 +383,9 @@ def generate_report_with_gemini(report_type):
    (등락률 기호: 상승은 +, 하락은 △ 기호를 사용하세요. 연초대비등락률도 동일하게 기호를 붙이세요.)
 5. 본문 문단들:
    - 한국 증시 장중 상황 (코스피/코스닥 지수 및 등락률, 장중 특이사항)
+     * 한국 증시 장중 상황 문단의 맨 마지막 줄에는 반드시 아래와 같이 삼성전자(전자), 삼성화재(화재), 삼성생명(생명)의 오늘 장중 등락률을 괄호 안에 한 줄로 기입하십시오. (이 괄호 줄은 문단의 맨 끝에 독립된 줄로 단독 표기되어야 합니다.)
+       형식: (전자 등락률, 화재 등락률, 생명 등락률)
+       예시: (전자 +4.6%, 화재 △1.6%, 생명 +4.9%)
    - 삼성전자, SK하이닉스 등 주요 대형주/반도체주 주가 및 뉴스 (실시간 장중 주가 기준)
    - 일본 증시 상황 (니케이225 지수 및 등락률, 특이사항)
    - 중국 증시 상황 (상해종합지수 및 등락률, 홍콩 항셍지수 및 등락률, 특이사항)
@@ -350,6 +422,9 @@ def generate_report_with_gemini(report_type):
    (등락률 기호: 상승은 +, 하락은 △ 기호를 사용하세요. 연초대비등락률도 동일하게 기호를 붙이세요.)
 5. 본문 문단들:
    - 한국 증시 마감 상황 (코스피/코스닥 지수 및 등락률, 마감 특이사항)
+     * 한국 증시 마감 상황 문단의 맨 마지막 줄에는 반드시 아래와 같이 삼성전자(전자), 삼성화재(화재), 삼성생명(생명)의 오늘 최종 등락률을 괄호 안에 한 줄로 기입하십시오. (이 괄호 줄은 문단의 맨 끝에 독립된 줄로 단독 표기되어야 합니다.)
+       형식: (전자 등락률, 화재 등락률, 생명 등락률)
+       예시: (전자 +4.6%, 화재 △1.6%, 생명 +4.9%)
    - 삼성전자, SK하이닉스 등 주요 대형주/반도체주 마감 주가 및 뉴스 (예: SK하이닉스 HBM 관련 소식 등)
    - 일본 증시 마감 상황 (니케이225 지수 및 등락률, 특이사항)
    - 중국 증시 마감 상황 (상해종합지수 및 등락률, 홍콩 항셍지수 및 등락률, 특이사항)
@@ -391,7 +466,13 @@ def generate_report_with_gemini(report_type):
             text = res_data["candidates"][0]["content"]["parts"][0]["text"]
             text_clean = re.sub(r"^```[a-zA-Z]*\n", "", text)
             text_clean = re.sub(r"\n```$", "", text_clean)
-            return text_clean.strip()
+            text_clean = re.sub(r'\s*\[cite:\s*[^\]]+\]', '', text_clean)
+            text_clean = text_clean.strip()
+            try:
+                text_clean = post_process_report(text_clean)
+            except Exception as pe:
+                log(f"[Post-process Warning] Failed to post-process Samsung stocks: {pe}")
+            return text_clean
     except Exception as e:
         log(f"[Gemini ERROR] Failed to call Gemini API: {e}")
         return None

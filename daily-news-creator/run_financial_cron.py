@@ -354,6 +354,7 @@ def generate_report_with_gemini(report_type):
             text = res_data["candidates"][0]["content"]["parts"][0]["text"]
             text_clean = re.sub(r"^```[a-zA-Z]*\n", "", text)
             text_clean = re.sub(r"\n```$", "", text_clean)
+            text_clean = re.sub(r'\s*\[cite:\s*[^\]]+\]', '', text_clean)
             return text_clean.strip()
     except Exception as e:
         log(f"[Gemini ERROR] Failed to call Gemini API: {e}")
