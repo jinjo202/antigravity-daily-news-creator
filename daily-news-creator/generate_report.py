@@ -198,6 +198,7 @@ def parse_raw_text(raw_text):
                 
     # Build data dictionary
     data = {
+        'raw_text': raw_text,
         'date': datetime.now().strftime("%Y년 %m월 %d일"),
         'section1_text': "\n".join(asian_lines),
         'asian_indices': [],
@@ -382,214 +383,143 @@ def parse_raw_text(raw_text):
 # ==============================================================================
 # DOCUMENT BUILDER
 # ==============================================================================
+def wrap_korean_text(text, max_len=30):
+    """Wraps Korean text strictly by spaces, ensuring no line exceeds max_len characters.
+    Words are never split across lines."""
+    is_bold_header = text.startswith('**') and text.endswith('**')
+    if is_bold_header:
+        text = text[2:-2].strip()
+        
+    words = text.split()
+    lines = []
+    current_line = []
+    current_len = 0
+    
+    for word in words:
+        visible_word = word.replace("**", "").replace("__", "")
+        word_len = len(visible_word)
+        
+        extra = 1 if current_line else 0
+        if current_len + word_len + extra > max_len:
+            if current_line:
+                lines.append(" ".join(current_line))
+                current_line = [word]
+                current_len = word_len
+            else:
+                current_line = [word]
+                current_len = word_len
+        else:
+            current_line.append(word)
+            current_len += word_len + extra
+            
+    if current_line:
+        lines.append(" ".join(current_line))
+        
+    result = [l for l in lines if l]
+    if is_bold_header:
+        result = [f"**{l}**" for l in result]
+    return result
+
 def create_report_document(data, output_path):
-    """Generates the official public sector 개조식 report Word document."""
+    """Generates the daily market report Word document matching the sample style exactly."""
     doc = Document()
     
-    # 1. Page margins set to 2.0 cm on all sides (상하좌우 여백 2cm 고정) & A4 Size
+    # 1. Page margins (상하좌우 여백 설정: 상 1.18인치 = 85.05pt, 하/좌/우 1.0인치 = 72pt)
     for section in doc.sections:
         section.page_width = Cm(21.0)
         section.page_height = Cm(29.7)
-        section.top_margin = Cm(2.0)
-        section.bottom_margin = Cm(2.0)
-        section.left_margin = Cm(2.0)
-        section.right_margin = Cm(2.0)
+        section.top_margin = Pt(85.05)
+        section.bottom_margin = Pt(72.0)
+        section.left_margin = Pt(72.0)
+        section.right_margin = Pt(72.0)
         
-    # 2. Extract title val for headline date formatting
-    match = re.search(r'(\d+)월\s*(\d+)일', data.get('date', ''))
-    if match:
-        month = match.group(1)
-        day = match.group(2)
-        headline_text = f"금일 아시아 및 국내 증시 시황 보고서 ({month}/{day})"
-    else:
-        headline_text = f"금일 아시아 및 국내 증시 시황 보고서"
-        
-    # 3. HEADLINE (헤드라인: 22pt, 바탕체, 굵게, 밑줄, 가운데정렬)
-    headline_p = doc.add_paragraph()
-    headline_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_format = headline_p.paragraph_format
-    p_format.space_before = Pt(12)
-    p_format.space_after = Pt(24)
-    p_format.line_spacing = 1.3
+    # Get raw report text
+    raw_text = data if isinstance(data, str) else data.get('raw_text', '')
+    if not raw_text and isinstance(data, dict):
+        # Fallback: reconstruct raw text from sections if raw_text key is missing
+        parts = []
+        sec1 = data.get('section1_text', '')
+        if sec1: parts.append(sec1)
+        sec2_1 = data.get('section2_text1', '')
+        if sec2_1: parts.append(sec2_1)
+        sec2_2 = data.get('section2_text2', '')
+        if sec2_2: parts.append(sec2_2)
+        sec3 = data.get('section3_text', '')
+        if sec3: parts.append(sec3)
+        sec4 = data.get('section4_text', '')
+        if sec4: parts.append(sec4)
+        raw_text = "\n\n".join(parts)
+
+    # Process line by line
+    lines = raw_text.splitlines()
     
-    headline_run = headline_p.add_run(headline_text)
-    style_run(headline_run, font_name='바탕체', size_pt=22, bold=True, underline=True)
-    
-    # 4. Convert parsed data to official gaejosik report structure
-    report_data = []
-    
-    # --- Section 1 ---
-    sec1 = {
-        'level1': "1.\t아시아 증시 동향 및 주요국 수익률 (YTD)",
-        'level2': "",
-        'level3': []
-    }
-    s1_text = data.get('section1_text', '').strip()
-    if s1_text:
-        # Join lines with space to prevent manual line breaks in Word
-        s1_clean = " ".join([line.strip() for line in s1_text.splitlines() if line.strip()])
-        sec1['level2'] = "□\t" + convert_to_nominal(s1_clean)
-    else:
-        sec1['level2'] = "□\t글로벌 긴축 우려 및 IT 업종 중심으로 아시아 주요국 증시가 전반적으로 약세를 보임."
+    for line in lines:
+        line_stripped = line.strip()
         
-    for idx_data in data.get('asian_indices', []):
-        country = idx_data.get('country', '')
-        c_name = country.replace(' 지수', '').replace(' 종합', '')
-        change = idx_data.get('change', '')
-        ytd = idx_data.get('ytd', '')
-        
-        if change == '휴장':
-            desc = f"-\t{c_name}는 휴장함."
-        else:
-            is_flat = False
-            try:
-                val_num = float(re.sub(r'[^0-9.]', '', change))
-                if val_num == 0.0:
-                    is_flat = True
-            except ValueError:
-                pass
-                
-            if is_flat:
-                desc = f"-\t{c_name}는 전일 대비 변동 없이 보합({change}) 마감하였으며, 연초 대비 {ytd}의 수익률을 보임."
-            else:
-                dir_word = "하락" if any(char in change for char in ['△', '-', '▼']) else "상승"
-                cleaned_change = change.replace('△', '').replace('-', '').replace('+', '')
-                desc = f"-\t{c_name}는 전일 대비 {cleaned_change} {dir_word}하였으며, 연초 대비 {ytd}의 수익률을 보임."
-        sec1['level3'].append(desc)
-    report_data.append(sec1)
-    
-    # --- Section 2 ---
-    sec2 = {
-        'level1': "2.\t국내 증시 (KOSPI) 및 대형 주도주 동향",
-        'level2': "",
-        'level3': []
-    }
-    s2_t1 = data.get('section2_text1', '').strip()
-    if s2_t1:
-        # Join lines with space to prevent manual line breaks in Word
-        s2_t1_clean = " ".join([line.strip() for line in s2_t1.splitlines() if line.strip()])
-        sec2['level2'] = "□\t" + convert_to_nominal(s2_t1_clean)
-    else:
-        sec2['level2'] = "□\t국내 증시는 수급 부담 및 반도체 업황 경계감으로 대형주 중심으로 폭락함."
-        
-    s2_t2 = data.get('section2_text2', '').strip()
-    s2_t2_paras = [p.strip() for p in s2_t2.split('\n') if p.strip()]
-    
-    st_list = []
-    for st in data.get('stocks', []):
-        name = st.get('name', '')
-        change = st.get('change', '')
-        dir_word = "하락" if '△' in change or '-' in change or '▼' in change else "상승"
-        cleaned_change = change.replace('△', '').replace('-', '').replace('+', '')
-        status_word = "약세를 보임" if dir_word == "하락" else "강세를 보임"
-        st_list.append(f"·\t{name}는 전일 대비 {cleaned_change} {dir_word}하며 {status_word}.")
-        
-    if s2_t2_paras:
-        sec2['level3'].append({
-            'text': "-\t" + convert_to_nominal(s2_t2_paras[0])
-        })
-        if len(s2_t2_paras) > 1:
-            sec2['level3'].append({
-                'text': "-\t" + convert_to_nominal(s2_t2_paras[1]),
-                'level4': st_list
-            })
-    else:
-        sec2['level3'].append({
-            'text': "-\t외국인은 코스피 시장에서 매도 우위를 지속하며 수급적 부담을 지속시킴."
-        })
-        sec2['level3'].append({
-            'text': "-\t반도체 관련 대형 주도주들이 기대감 선반영에 따른 차익실현 매물 출회로 동반 약세를 보임.",
-            'level4': st_list
-        })
-    report_data.append(sec2)
-    
-    # --- Section 3 ---
-    sec3 = {
-        'level1': "3.\t외환 및 채권 시장 동향",
-        'level2': "□\t환율 고공행진 등 수급 불안 속에 국채금리는 긴축 장기화 우려로 급등을 나타냄.",
-        'level3': []
-    }
-    for macro in data.get('macro_indicators', []):
-        name = macro.get('name', '')
-        val = macro.get('value', '')
-        change = macro.get('change', '')
-        
-        dir_word = "하락" if '△' in change or '-' in change or '▼' in change else "상승"
-        cleaned_change = change.replace('△', '').replace('-', '').replace('+', '')
-        desc = f"-\t{name}는 전일 대비 {cleaned_change} {dir_word}한 {val} 수준으로 마감함."
-        sec3['level3'].append(desc)
-        
-    quote = data.get('quote', {})
-    if quote and len(sec3['level3']) > 1:
-        speaker = quote.get('speaker', '')
-        content = quote.get('content', '')
-        nominal_content = convert_to_nominal(content)
-        sec3['level3'][1] = {
-            'text': sec3['level3'][1],
-            'level4': [f"·\t※ {speaker}는 {nominal_content}"]
-        }
-    report_data.append(sec3)
-    
-    # --- Section 4 ---
-    sec4 = {
-        'level1': "4.\t금주 주요 일정 및 투자 전망",
-        'level2': "",
-        'level3': []
-    }
-    s4_text = data.get('section4_text', '').strip()
-    s4_paras = [p.strip() for p in s4_text.split('\n') if p.strip()]
-    if s4_paras:
-        sec4['level2'] = "□\t" + convert_to_nominal(s4_paras[0])
-    else:
-        sec4['level2'] = "□\t주요 글로벌 매크로 이벤트 결과에 따라 국내외 증시의 변동성이 지속될 것으로 전망됨."
-        
-    for event in data.get('events', []):
-        desc = f"-\t{convert_to_nominal(event)}"
-        sec4['level3'].append(desc)
-    report_data.append(sec4)
-    
-    # 5. Write Content to Document in 4-Level Gaejosik Layout
-    for section in report_data:
-        # --- Level 1 ("1.") ---
-        p1 = doc.add_paragraph()
-        format_paragraph(p1, space_before_pt=12, space_after_pt=12, left_indent_pt=22.5, first_line_indent_pt=-22.5)
-        run1 = p1.add_run(section['level1'])
-        style_run(run1, font_name='바탕체', size_pt=15, bold=True)
-        
-        # --- Level 2 ("□") ---
-        p2 = doc.add_paragraph()
-        format_paragraph(p2, space_before_pt=12, space_after_pt=12, left_indent_pt=22.5, first_line_indent_pt=-22.5)
-        run2 = p2.add_run(section['level2'])
-        style_run(run2, font_name='바탕체', size_pt=15, bold=True)
-        
-        # --- Level 3 ("-") ---
-        for l3_item in section['level3']:
-            if isinstance(l3_item, dict):
-                text_content = l3_item['text']
-                level4_list = l3_item.get('level4', [])
-            else:
-                text_content = l3_item
-                level4_list = []
-                
-            is_fn3 = "※" in text_content
-            p3 = doc.add_paragraph()
-            format_paragraph(p3, space_before_pt=6, space_after_pt=6, left_indent_pt=30.0, first_line_indent_pt=-15.0, word_wrap_off=True)
+        # Skip title line at the top of the document (sample does not show it)
+        line_clean = line_stripped.replace('*', '').strip()
+        if line_clean.lower().startswith('title') or line_clean.lower().startswith('**title'):
+            continue
+        if line_stripped.startswith('**') and line_stripped.endswith('**') and '시황(' in line_stripped:
+            continue
             
-            run3 = p3.add_run(text_content)
-            style_run(run3, font_name='바탕체', size_pt=15, bold=False, is_footnote=is_fn3)
+        # Empty line maps to empty paragraph (preserves spacing blocks)
+        if not line_stripped:
+            doc.add_paragraph()
+            continue
             
-            # --- Level 4 ("·") ---
-            for l4_text in level4_list:
-                is_fn4 = "※" in l4_text
-                p4 = doc.add_paragraph()
-                format_paragraph(p4, space_before_pt=3, space_after_pt=3, left_indent_pt=37.5, first_line_indent_pt=-15.0, word_wrap_off=True)
+        # Wrap the line to max 30 characters
+        wrapped_lines = wrap_korean_text(line_stripped, max_len=30)
+        for w_line in wrapped_lines:
+            p = doc.add_paragraph()
+            p_format = p.paragraph_format
+            p_format.space_before = Pt(0)
+            p_format.space_after = Pt(8)
+            p_format.line_spacing = 1.15
+            
+            # Enable kinsoku and wordWrap for Korean (한글 단어 잘림 방지)
+            pPr = p._p.get_or_add_pPr()
+            kinsoku = OxmlElement('w:kinsoku')
+            kinsoku.set(qn('w:val'), '1')
+            pPr.append(kinsoku)
+            
+            wordWrap = OxmlElement('w:wordWrap')
+            wordWrap.set(qn('w:val'), '1')
+            pPr.append(wordWrap)
+            
+            # Check if YTD line (starts with ※)
+            is_ytd = w_line.startswith('※')
+            color = RGBColor(0, 0, 255) if is_ytd else RGBColor(0, 0, 0)
+            
+            # Parse markdown bold (**...**)
+            parts = re.split(r'(\*\*[^*]+\*\*)', w_line)
+            for part in parts:
+                if part.startswith('**') and part.endswith('**'):
+                    run_text = part[2:-2]
+                    bold = True
+                else:
+                    run_text = part
+                    bold = False
+                    
+                if run_text:
+                    run = p.add_run(run_text)
+                    run.font.name = '바탕체'
+                    run.font.size = Pt(11)
+                    run.bold = bold
+                    run.font.color.rgb = color
+                    
+                    # XML fix for East Asian fonts rendering
+                    rPr = run._r.get_or_add_rPr()
+                    rFonts = rPr.find(qn('w:rFonts'))
+                    if rFonts is None:
+                        rFonts = OxmlElement('w:rFonts')
+                        rPr.append(rFonts)
+                    rFonts.set(qn('w:ascii'), '바탕체')
+                    rFonts.set(qn('w:hAnsi'), '바탕체')
+                    rFonts.set(qn('w:eastAsia'), '바탕체')
                 
-                run4 = p4.add_run(l4_text)
-                style_run(run4, font_name='바탕체', size_pt=15, bold=False, is_footnote=is_fn4)
-                
-    # Save the document
     doc.save(output_path)
-    print(f"[성공] 공공기관 개조식 보고서가 성공적으로 생성되었습니다: {output_path}")
+    print(f"[성공] 워드 문서가 아시아시황 샘플 양식으로 생성되었습니다: {output_path}")
 
 # ==============================================================================
 # MAIN COMMAND LINE INTERFACE

@@ -173,131 +173,143 @@ def parse_us_report(text):
         'sec4_text': "\n".join(sec4_lines)
     }
 
+def wrap_korean_text(text, max_len=30):
+    """Wraps Korean text strictly by spaces, ensuring no line exceeds max_len characters.
+    Words are never split across lines."""
+    is_bold_header = text.startswith('**') and text.endswith('**')
+    if is_bold_header:
+        text = text[2:-2].strip()
+        
+    words = text.split()
+    lines = []
+    current_line = []
+    current_len = 0
+    
+    for word in words:
+        visible_word = word.replace("**", "").replace("__", "")
+        word_len = len(visible_word)
+        
+        extra = 1 if current_line else 0
+        if current_len + word_len + extra > max_len:
+            if current_line:
+                lines.append(" ".join(current_line))
+                current_line = [word]
+                current_len = word_len
+            else:
+                current_line = [word]
+                current_len = word_len
+        else:
+            current_line.append(word)
+            current_len += word_len + extra
+            
+    if current_line:
+        lines.append(" ".join(current_line))
+        
+    result = [l for l in lines if l]
+    if is_bold_header:
+        result = [f"**{l}**" for l in result]
+    return result
+
 def create_us_report_document(data, output_path):
-    """Generates the official public sector 개조식 report Word document for US market."""
+    """Generates the daily US market report Word document matching the sample style exactly."""
     doc = Document()
     
-    # Page margins set to 2.0 cm on all sides & A4 Size
+    # 1. Page margins (상하좌우 여백 설정: 상 1.18인치 = 85.05pt, 하/좌/우 1.0인치 = 72pt)
     for section in doc.sections:
         section.page_width = Cm(21.0)
         section.page_height = Cm(29.7)
-        section.top_margin = Cm(2.0)
-        section.bottom_margin = Cm(2.0)
-        section.left_margin = Cm(2.0)
-        section.right_margin = Cm(2.0)
+        section.top_margin = Pt(85.05)
+        section.bottom_margin = Pt(72.0)
+        section.left_margin = Pt(72.0)
+        section.right_margin = Pt(72.0)
         
-    # Headline (헤드라인: 22pt, 바탕체, 굵게, 밑줄, 가운데정렬)
-    match = re.search(r'(\d+)월\s*(\d+)일', data.get('date', ''))
-    if match:
-        month = match.group(1)
-        day = match.group(2)
-        headline_text = f"일일 금융시장 동향 보고서 ({month}/{day})"
-    else:
-        headline_text = "일일 금융시장 동향 보고서"
+    # Get raw report text
+    raw_text = data if isinstance(data, str) else data.get('raw_text', '')
+    if not raw_text and isinstance(data, dict):
+        # Fallback: reconstruct raw text from sections if raw_text key is missing
+        parts = []
+        sec1 = data.get('sec1_text', '')
+        if sec1: parts.append(sec1)
+        sec2 = data.get('sec2_text', '')
+        if sec2: parts.append(sec2)
+        semi = data.get('semi_details', '')
+        if semi: parts.append(semi)
+        bond = data.get('bond_line', '')
+        if bond: parts.append(bond)
+        sec3 = data.get('sec3_text', '')
+        if sec3: parts.append(sec3)
+        sec4 = data.get('sec4_text', '')
+        if sec4: parts.append(sec4)
+        raw_text = "\n\n".join(parts)
+
+    # Process line by line
+    lines = raw_text.splitlines()
+    
+    for line in lines:
+        line_stripped = line.strip()
         
-    headline_p = doc.add_paragraph()
-    headline_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p_format = headline_p.paragraph_format
-    p_format.space_before = Pt(12)
-    p_format.space_after = Pt(24)
-    p_format.line_spacing = 1.3
-    
-    headline_run = headline_p.add_run(headline_text)
-    style_run(headline_run, font_name='바탕체', size_pt=22, bold=True, underline=True)
-    
-    # 1. 미국 및 유럽 증시 동향 및 주요국 수익률
-    p1 = doc.add_paragraph()
-    format_paragraph(p1, space_before_pt=12, space_after_pt=12, left_indent_pt=22.5, first_line_indent_pt=-22.5)
-    run1 = p1.add_run("1.\t미국 및 유럽 증시 동향 및 주요국 수익률")
-    style_run(run1, font_name='바탕체', size_pt=15, bold=True)
-    
-    p1_2 = doc.add_paragraph()
-    format_paragraph(p1_2, space_before_pt=12, space_after_pt=12, left_indent_pt=22.5, first_line_indent_pt=-22.5)
-    run1_2 = p1_2.add_run("□\t" + convert_to_nominal(data.get('sec1_text', '')))
-    style_run(run1_2, font_name='바탕체', size_pt=15, bold=True)
-    
-    # Parse YTD line (e.g. * 6/16(연초대비): S&P500 △0.6%(+9.7)...)
-    ytd_text = data.get('ytd_line', '')
-    if ytd_text:
-        matches = re.findall(r'([가-힣a-zA-Z0-9&]+)\s+([+\-△▲▼▽]?[0-9.]+%?)\s*\(\s*([+\-△▲▼▽]?[0-9.]+%?)\s*\)', ytd_text)
-        for index_name, change, ytd in matches:
-            if not change.endswith('%') and any(char.isdigit() for char in change):
-                change += '%'
-            if not ytd.endswith('%') and any(char.isdigit() for char in ytd):
-                ytd += '%'
-            dir_word = "하락" if '△' in change or '-' in change or '▼' in change else "상승"
-            cleaned_change = change.replace('△', '').replace('-', '').replace('+', '')
+        # Skip title line at the top of the document (sample does not show it)
+        line_clean = line_stripped.replace('*', '').strip()
+        if line_clean.lower().startswith('title') or line_clean.lower().startswith('**title'):
+            continue
+        if line_stripped.startswith('**') and line_stripped.endswith('**') and '시황(' in line_stripped:
+            continue
             
-            p_ytd = doc.add_paragraph()
-            format_paragraph(p_ytd, space_before_pt=6, space_after_pt=6, left_indent_pt=30.0, first_line_indent_pt=-15.0, word_wrap_off=True)
-            run_ytd = p_ytd.add_run(f"-\t{index_name} 지수는 전일 대비 {cleaned_change} {dir_word}하였으며, 연초 대비 {ytd}의 수익률을 보임.")
-            style_run(run_ytd, font_name='바탕체', size_pt=15, bold=False)
+        # Empty line maps to empty paragraph (preserves spacing blocks)
+        if not line_stripped:
+            doc.add_paragraph()
+            continue
             
-    # 2. 국제 유가 및 채권 금리 동향
-    p2 = doc.add_paragraph()
-    format_paragraph(p2, space_before_pt=12, space_after_pt=12, left_indent_pt=22.5, first_line_indent_pt=-22.5)
-    run2 = p2.add_run("2.\t국제 유가 및 채권 금리 동향")
-    style_run(run2, font_name='바탕체', size_pt=15, bold=True)
-    
-    p2_2 = doc.add_paragraph()
-    format_paragraph(p2_2, space_before_pt=12, space_after_pt=12, left_indent_pt=22.5, first_line_indent_pt=-22.5)
-    run2_2 = p2_2.add_run("□\t" + convert_to_nominal(data.get('sec2_text', '')))
-    style_run(run2_2, font_name='바탕체', size_pt=15, bold=True)
-    
-    semi_details = data.get('semi_details', '')
-    if semi_details:
-        p_semi = doc.add_paragraph()
-        format_paragraph(p_semi, space_before_pt=6, space_after_pt=6, left_indent_pt=30.0, first_line_indent_pt=-15.0, word_wrap_off=True)
-        run_semi = p_semi.add_run("-\t" + convert_to_nominal(semi_details))
-        style_run(run_semi, font_name='바탕체', size_pt=15, bold=False)
-        
-    bond_line = data.get('bond_line', '')
-    if bond_line:
-        p_bond = doc.add_paragraph()
-        format_paragraph(p_bond, space_before_pt=6, space_after_pt=6, left_indent_pt=30.0, first_line_indent_pt=-15.0, word_wrap_off=True)
-        run_bond = p_bond.add_run("-\t" + convert_to_nominal(bond_line))
-        style_run(run_bond, font_name='바탕체', size_pt=15, bold=False)
-        
-    # 3. 주요 금리 변수 및 FOMC 전망
-    p3 = doc.add_paragraph()
-    format_paragraph(p3, space_before_pt=12, space_after_pt=12, left_indent_pt=22.5, first_line_indent_pt=-22.5)
-    run3 = p3.add_run("3.\t주요 금리 변수 및 FOMC 전망")
-    style_run(run3, font_name='바탕체', size_pt=15, bold=True)
-    
-    sec3_text = data.get('sec3_text', '').strip()
-    sec3_paras = [p.strip() for p in sec3_text.split('\n') if p.strip()]
-    if sec3_paras:
-        p3_2 = doc.add_paragraph()
-        format_paragraph(p3_2, space_before_pt=12, space_after_pt=12, left_indent_pt=22.5, first_line_indent_pt=-22.5)
-        run3_2 = p3_2.add_run("□\t" + convert_to_nominal(sec3_paras[0]))
-        style_run(run3_2, font_name='바탕체', size_pt=15, bold=True)
-        
-        for para in sec3_paras[1:]:
-            p_sub = doc.add_paragraph()
-            format_paragraph(p_sub, space_before_pt=6, space_after_pt=6, left_indent_pt=30.0, first_line_indent_pt=-15.0, word_wrap_off=True)
-            run_sub = p_sub.add_run("-\t" + convert_to_nominal(para))
-            style_run(run_sub, font_name='바탕체', size_pt=15, bold=False)
+        # Wrap the line to max 30 characters
+        wrapped_lines = wrap_korean_text(line_stripped, max_len=30)
+        for w_line in wrapped_lines:
+            p = doc.add_paragraph()
+            p_format = p.paragraph_format
+            p_format.space_before = Pt(0)
+            p_format.space_after = Pt(8)
+            p_format.line_spacing = 1.15
             
-    # 4. 국내 증시 외국인 수급 동향 및 전망
-    p4 = doc.add_paragraph()
-    format_paragraph(p4, space_before_pt=12, space_after_pt=12, left_indent_pt=22.5, first_line_indent_pt=-22.5)
-    run4 = p4.add_run("4.\t국내 증시 외국인 수급 동향 및 전망")
-    style_run(run4, font_name='바탕체', size_pt=15, bold=True)
-    
-    sec4_text = data.get('sec4_text', '').strip()
-    sec4_paras = [p.strip() for p in sec4_text.split('\n') if p.strip()]
-    if sec4_paras:
-        p4_2 = doc.add_paragraph()
-        format_paragraph(p4_2, space_before_pt=12, space_after_pt=12, left_indent_pt=22.5, first_line_indent_pt=-22.5)
-        run4_2 = p4_2.add_run("□\t" + convert_to_nominal(sec4_paras[0]))
-        style_run(run4_2, font_name='바탕체', size_pt=15, bold=True)
-        
-        for para in sec4_paras[1:]:
-            p_sub = doc.add_paragraph()
-            format_paragraph(p_sub, space_before_pt=6, space_after_pt=6, left_indent_pt=30.0, first_line_indent_pt=-15.0, word_wrap_off=True)
-            run_sub = p_sub.add_run("-\t" + convert_to_nominal(para))
-            style_run(run_sub, font_name='바탕체', size_pt=15, bold=False)
+            # Enable kinsoku and wordWrap for Korean (한글 단어 잘림 방지)
+            pPr = p._p.get_or_add_pPr()
+            kinsoku = OxmlElement('w:kinsoku')
+            kinsoku.set(qn('w:val'), '1')
+            pPr.append(kinsoku)
             
+            wordWrap = OxmlElement('w:wordWrap')
+            wordWrap.set(qn('w:val'), '1')
+            pPr.append(wordWrap)
+            
+            # Check if YTD line (starts with ※ or *)
+            is_ytd = w_line.startswith('※') or (w_line.startswith('*') and '연초대비' in w_line)
+            color = RGBColor(0, 0, 255) if is_ytd else RGBColor(0, 0, 0)
+            
+            # Parse markdown bold (**...**)
+            parts = re.split(r'(\*\*[^*]+\*\*)', w_line)
+            for part in parts:
+                if part.startswith('**') and part.endswith('**'):
+                    run_text = part[2:-2]
+                    bold = True
+                else:
+                    run_text = part
+                    bold = False
+                    
+                if run_text:
+                    run = p.add_run(run_text)
+                    run.font.name = '바탕체'
+                    run.font.size = Pt(11)
+                    run.bold = bold
+                    run.font.color.rgb = color
+                    
+                    # XML fix for East Asian fonts rendering
+                    rPr = run._r.get_or_add_rPr()
+                    rFonts = rPr.find(qn('w:rFonts'))
+                    if rFonts is None:
+                        rFonts = OxmlElement('w:rFonts')
+                        rPr.append(rFonts)
+                    rFonts.set(qn('w:ascii'), '바탕체')
+                    rFonts.set(qn('w:hAnsi'), '바탕체')
+                    rFonts.set(qn('w:eastAsia'), '바탕체')
+                
     doc.save(output_path)
     print(f"[성공] 미국 시황 보고서 워드 문서 생성 완료: {output_path}")
 

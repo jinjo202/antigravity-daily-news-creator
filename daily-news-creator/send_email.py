@@ -11,20 +11,24 @@ from email import encoders
 GMAIL_ADDRESS = "devbotsender8282@gmail.com"
 GMAIL_PASSWORD = "lvjayqklnrkofjbj"  # Verified App Password
 
-def wrap_line_by_words(text, max_len=40):
-    """Wraps text on word boundaries (spaces) to not exceed max_len visual characters per line, protecting markdown tags."""
-    words = text.split(" ")
+def wrap_korean_text(text, max_len=30):
+    """Wraps Korean text strictly by spaces, ensuring no line exceeds max_len characters.
+    Words are never split across lines."""
+    is_bold_header = text.startswith('**') and text.endswith('**')
+    if is_bold_header:
+        text = text[2:-2].strip()
+        
+    words = text.split()
     lines = []
     current_line = []
     current_len = 0
     
     for word in words:
-        # Calculate visual length without markdown characters
         visible_word = word.replace("**", "").replace("__", "")
         word_len = len(visible_word)
         
-        # Check if adding this word (and space) exceeds max_len
-        if current_len + word_len + (1 if current_line else 0) > max_len:
+        extra = 1 if current_line else 0
+        if current_len + word_len + extra > max_len:
             if current_line:
                 lines.append(" ".join(current_line))
                 current_line = [word]
@@ -34,163 +38,62 @@ def wrap_line_by_words(text, max_len=40):
                 current_len = word_len
         else:
             current_line.append(word)
-            current_len += word_len + (1 if len(current_line) > 1 else 0)
+            current_len += word_len + extra
             
     if current_line:
         lines.append(" ".join(current_line))
-    return lines
+        
+    result = [l for l in lines if l]
+    if is_bold_header:
+        result = [f"**{l}**" for l in result]
+    return result
 
 
 def convert_text_to_html(body_text):
-    """Converts the plain text body to HTML matching the original TrendForce Gmail styling exactly,
-    preserving line lengths and formatting them as justified rectangular text blocks."""
-    
-    def get_line_type(line):
-        cleaned = line.strip()
-        if not cleaned:
-            return 'empty'
-        cleaned_lower = cleaned.lower()
-        if cleaned_lower.startswith("title") or cleaned_lower.startswith("**title**"):
-            return 'title'
-        # Check list item starting with * followed by space or non-breaking space
-        if cleaned.startswith("* ") or cleaned.startswith("*\xa0") or cleaned.startswith("*\t"):
-            return 'list_item'
-        if cleaned.startswith("※") or "※" in cleaned:
-            return 'footnote'
-        return 'normal'
-
-    # Group lines by empty lines or structural type changes
+    """Converts the plain text body to HTML matching the clean style exactly,
+    processing line-by-line, wrapping to max 25 characters,
+    and keeping font family as 바탕체 11pt."""
+    import re
     lines = body_text.splitlines()
-    groups = []
-    current_group = []
-    current_type = None
-    
-    for line in lines:
-        ltype = get_line_type(line)
-        if ltype == 'empty':
-            if current_group:
-                groups.append((current_type, current_group))
-                current_group = []
-            groups.append(('empty', ['']))
-            current_type = None
-        elif ltype in ('title', 'list_item', 'footnote'):
-            if current_group:
-                groups.append((current_type, current_group))
-            groups.append((ltype, [line]))
-            current_group = []
-            current_type = None
-        else:  # normal
-            if current_type == 'normal':
-                current_group.append(line)
-            else:
-                if current_group:
-                    groups.append((current_type, current_group))
-                current_group = [line]
-                current_type = 'normal'
-                
-    if current_group:
-        groups.append((current_type, current_group))
-
     html_parts = []
     
-    for gtype, glines in groups:
-        if gtype == 'empty':
-            # Empty paragraph (no alignment needed, default left)
-            html_parts.append('<p style="box-sizing:content-box;font-family:굴림,sans-serif;color:rgb(0,0,0);font-size:12pt;vertical-align:top;display:block;line-height:1.5;font-weight:400;margin:5px 0px 10.66px;padding:0px;background-color:rgb(255,255,255);text-align:left;"><span style="font-family:바탕체,serif;color:black"><br></span></p>')
-        else:
-            # Preserve leading spaces of the first line
-            first_line = glines[0]
-            m = re.match(r'^(\s*)', first_line)
-            leading_spaces = m.group(1) if m else ""
-            nbsp = leading_spaces.replace(" ", "&nbsp;")
+    for line in lines:
+        line_stripped = line.strip()
+        
+        if not line_stripped:
+            # Empty paragraph
+            html_parts.append('<p style="margin:0px 0px 8px 0px;line-height:1.15;text-align:left;font-family:바탕체,serif;font-size:11pt;color:black;"><br></p>')
+            continue
             
-            if gtype == 'title':
-                content = glines[0].strip()
-                # Markdown bold/underline styling
-                content = re.sub(r'\*\*__(.*?)__\*\*', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
-                content = re.sub(r'__\*\*(.*?)\*\*__', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
-                content = re.sub(r'\*\*(.*?)\*\*', r'<strong style="font-weight:bold">\1</strong>', content)
-                content = re.sub(r'__(.*?)__', r'<u style="text-decoration:underline">\1</u>', content)
-                
-                if content.lower().startswith("title") or content.lower().startswith("**title**"):
-                    cleaned_title = content.replace("**", "")
-                    colon_idx = cleaned_title.find(":")
-                    if colon_idx != -1:
-                        title_label = cleaned_title[:colon_idx + 1]
-                        title_val = cleaned_title[colon_idx + 1:]
-                    else:
-                        title_label = cleaned_title
-                        title_val = ""
-                else:
-                    title_label = content
-                    title_val = ""
-                    
-                title_label = re.sub(r'\*\*__(.*?)__\*\*', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', title_label)
-                title_label = re.sub(r'__\*\*(.*?)\*\*__', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', title_label)
-                title_label = re.sub(r'\*\*(.*?)\*\*', r'<strong style="font-weight:bold">\1</strong>', title_label)
-                title_label = re.sub(r'__(.*?)__', r'<u style="text-decoration:underline">\1</u>', title_label)
-                
-                title_val = re.sub(r'\*\*__(.*?)__\*\*', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', title_val)
-                title_val = re.sub(r'__\*\*(.*?)\*\*__', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', title_val)
-                title_val = re.sub(r'\*\*(.*?)\*\*', r'<strong style="font-weight:bold">\1</strong>', title_val)
-                title_val = re.sub(r'__(.*?)__', r'<u style="text-decoration:underline">\1</u>', title_val)
-                
-                html_parts.append(f'<p style="margin:0px 0px 10.66px 0px;text-align:left;"><span style="font-weight:bold;font-family:\'Malgun Gothic\', \'맑은 고딕\', sans-serif;font-size:13.3333px">{nbsp}{title_label}</span><span style="font-family:\'Malgun Gothic\', \'맑은 고딕\', sans-serif;font-size:13.3333px">{title_val}</span></p>')
-                
-            elif gtype == 'list_item':
-                # Format each list line individually (left aligned)
-                for line in glines:
-                    content = line.strip()
-                    content = re.sub(r'\*\*__(.*?)__\*\*', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
-                    content = re.sub(r'__\*\*(.*?)\*\*__', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
-                    content = re.sub(r'\*\*(.*?)\*\*', r'<strong style="font-weight:bold">\1</strong>', content)
-                    content = re.sub(r'__(.*?)__', r'<u style="text-decoration:underline">\1</u>', content)
-                    html_parts.append(f'<p align="left" style="box-sizing:content-box;font-family:굴림,sans-serif;color:rgb(0,0,0);font-size:12pt;vertical-align:top;display:block;font-weight:400;margin:0px;padding:0px;background-color:rgb(255,255,255);line-height:1.5;text-align:left;"><span style="box-sizing:content-box;font-family:바탕체,serif;color:blue;letter-spacing:-0.4pt;margin-left:0px;margin-bottom:0px;margin-right:0px;margin-top:0px;padding-left:0px;padding-bottom:0px;padding-right:0px;padding-top:0px;font-size:11pt;line-height:145%;background:transparent;">{nbsp}{content}</span></p>')
-                    
-            elif gtype == 'footnote':
-                # Format footnote lines
-                for line in glines:
-                    content = line.strip()
-                    content = re.sub(r'\*\*__(.*?)__\*\*', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
-                    content = re.sub(r'__\*\*(.*?)\*\*__', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
-                    content = re.sub(r'\*\*(.*?)\*\*', r'<strong style="font-weight:bold">\1</strong>', content)
-                    content = re.sub(r'__(.*?)__', r'<u style="text-decoration:underline">\1</u>', content)
-                    html_parts.append(f'<p align="left" style="box-sizing:content-box;font-family:굴림,sans-serif;color:rgb(0,0,0);font-size:12pt;vertical-align:top;display:block;line-height:1.5;font-weight:400;margin:5px 0px 10.66px;padding:0px;background-color:rgb(255,255,255);text-align:left;"><span style="background:transparent;font-size:11pt;line-height:145%;font-family:바탕체,serif;color:blue">{nbsp}{content}</span></p>')
-                    
-            else:  # normal
-                # Decide if we wrap or keep original lines
-                # If original lines are already formatted (i.e. multiple short lines), we preserve them.
-                # If it's a long continuous text block, we wrap it to match the sample email line length (~40 chars).
-                use_original = len(glines) > 1 and all(len(l.strip()) < 42 for l in glines)
-                
-                if use_original:
-                    final_lines = [l.strip() for l in glines]
-                else:
-                    combined = " ".join([l.strip() for l in glines])
-                    final_lines = wrap_line_by_words(combined, max_len=40)
-                
-                # Render the lines inside a single paragraph using <br> for line breaks
-                # so that they form a clean justified block
-                rendered_lines = []
-                for fl in final_lines:
-                    content = fl
-                    content = re.sub(r'\*\*__(.*?)__\*\*', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
-                    content = re.sub(r'__\*\*(.*?)\*\*__', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
-                    content = re.sub(r'\*\*(.*?)\*\*', r'<strong style="font-weight:bold">\1</strong>', content)
-                    content = re.sub(r'__(.*?)__', r'<u style="text-decoration:underline">\1</u>', content)
-                    rendered_lines.append(content)
-                
-                joined_content = "<br>".join(rendered_lines)
-                
-                # Check if it is a greeting, sign-off, or very short paragraph overall
-                total_text_len = sum(len(l) for l in final_lines)
-                is_short = total_text_len < 28 or any(kw in joined_content for kw in ["안녕하십니까", "감사합니다", "보고 드립니다", "동향입니다", "올림", "드림"])
-                
-                if is_short:
-                    html_parts.append(f'<p align="left" style="box-sizing:content-box;font-family:굴림,sans-serif;color:rgb(0,0,0);font-size:12pt;vertical-align:top;display:block;line-height:1.5;font-weight:400;margin:5px 0px 10.66px;padding:0px;background-color:rgb(255,255,255);text-align:left;"><span style="background-color:transparent;color:black;font-family:바탕체,serif;font-size:12pt">{nbsp}{joined_content}</span></p>')
-                else:
-                    html_parts.append(f'<p align="justify" style="box-sizing:content-box;font-family:굴림,sans-serif;color:rgb(0,0,0);font-size:12pt;vertical-align:top;display:block;line-height:1.5;font-weight:400;margin:5px 0px 10.66px;padding:0px;background-color:rgb(255,255,255);text-align:justify;text-justify:inter-character;word-break:break-all;"><span style="background-color:transparent;color:black;font-family:바탕체,serif;font-size:12pt">{nbsp}{joined_content}</span></p>')
-                
+        # Wrap the line to max 30 characters
+        wrapped_lines = wrap_korean_text(line_stripped, max_len=30)
+        for w_line in wrapped_lines:
+            # Parse markdown bold (**...**) and underline (__...__)
+            content = w_line
+            content = re.sub(r'\*\*__(.*?)__\*\*', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
+            content = re.sub(r'__\*\*(.*?)\*\*__', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
+            content = re.sub(r'\*\*(.*?)\*\*', r'<strong style="font-weight:bold">\1</strong>', content)
+            content = re.sub(r'__(.*?)__', r'<u style="text-decoration:underline">\1</u>', content)
+            
+            # Check if YTD line (starts with ※ or starts with * and contains 연초대비)
+            is_ytd = w_line.startswith('※') or (w_line.startswith('*') and '연초대비' in w_line)
+            color = 'blue' if is_ytd else 'black'
+            
+            # We align left for greeting, title, sign-offs, or headers
+            is_align_left = any(kw in w_line for kw in ["안녕하십니까", "감사합니다", "보고 드립니다", "동향입니다", "올림", "드림"]) or w_line.startswith('**') or w_line.lower().startswith('title')
+            align_str = 'left' if is_align_left else 'justify'
+            
+            # Keep leading whitespace using non-breaking spaces if any
+            m = re.match(r'^(\s+)', w_line)
+            leading_space = m.group(1) if m else ""
+            nbsp = leading_space.replace(" ", "&nbsp;")
+            
+            html_parts.append(
+                f'<p align="{align_str}" style="margin:0px 0px 8px 0px;line-height:1.15;text-align:{align_str};font-family:바탕체,serif;font-size:11pt;color:{color};word-break:break-all;">'
+                f'<span style="font-family:바탕체,serif;font-size:11pt;color:{color};">{nbsp}{content}</span>'
+                f'</p>'
+            )
+        
     return "".join(html_parts)
 
 
