@@ -41,11 +41,18 @@ def format_paragraph(paragraph, space_before_pt, space_after_pt, left_indent_pt,
     p_format.line_spacing = 1.3
     p_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     
-    if word_wrap_off:
-        pPr = paragraph._p.get_or_add_pPr()
-        wordWrap = OxmlElement('w:wordWrap')
-        wordWrap.set(qn('w:val'), 'off')
-        pPr.append(wordWrap)
+    # Enforce word wrap to prevent Hangul word splitting (한글 단어 잘림 방지)
+    pPr = paragraph._p.get_or_add_pPr()
+    
+    # 금칙 처리 활성화
+    kinsoku = OxmlElement('w:kinsoku')
+    kinsoku.set(qn('w:val'), '1')
+    pPr.append(kinsoku)
+    
+    # 단어 단위 줄 바꿈 활성화
+    wordWrap = OxmlElement('w:wordWrap')
+    wordWrap.set(qn('w:val'), '1')
+    pPr.append(wordWrap)
 
 def convert_to_nominal(sentence):
     """Converts a polite Korean sentence to nominal-ending (개조식) form."""

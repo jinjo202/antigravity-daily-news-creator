@@ -47,12 +47,18 @@ def format_paragraph(paragraph, space_before_pt, space_after_pt, left_indent_pt,
     # Use JUSTIFY alignment for Korean public documents to align both margins like a rectangle.
     p_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     
-    # Ensure word wrap does not split characters (단어가 끊어지지 않도록 줄바꿈 설정)
-    if word_wrap_off:
-        pPr = paragraph._p.get_or_add_pPr()
-        wordWrap = OxmlElement('w:wordWrap')
-        wordWrap.set(qn('w:val'), 'off')
-        pPr.append(wordWrap)
+    # Enforce word wrap to prevent Hangul word splitting (한글 단어 잘림 방지)
+    pPr = paragraph._p.get_or_add_pPr()
+    
+    # 금칙 처리 활성화
+    kinsoku = OxmlElement('w:kinsoku')
+    kinsoku.set(qn('w:val'), '1')
+    pPr.append(kinsoku)
+    
+    # 단어 단위 줄 바꿈 활성화
+    wordWrap = OxmlElement('w:wordWrap')
+    wordWrap.set(qn('w:val'), '1')
+    pPr.append(wordWrap)
 
 # ==============================================================================
 # NOMINAL (GAEJOSIK) ENDING CONVERTER

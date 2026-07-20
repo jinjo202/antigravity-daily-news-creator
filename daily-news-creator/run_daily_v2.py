@@ -38,11 +38,17 @@ def main():
         
     # 2. Extract date/title from report_text for subject and file name
     first_line = report_text.split('\n')[0].strip()
+    # Strip markdown bold formatting and extra spaces
+    first_line_clean = first_line.replace('*', '').strip()
+    
     title_val = ""
-    if first_line.lower().startswith('title'):
-        colon_idx = first_line.find(':')
+    if first_line_clean.lower().startswith('title'):
+        colon_idx = first_line_clean.find(':')
         if colon_idx != -1:
-            title_val = first_line[colon_idx + 1:].strip()
+            title_val = first_line_clean[colon_idx + 1:].strip()
+    else:
+        # Fallback to the cleaned first line itself if it contains content
+        title_val = first_line_clean
             
     today_str = datetime.now().strftime("%Y%m%d")
     # If title_val contains a date like 6/2 or 06/02, try to use it for doc name
@@ -65,13 +71,26 @@ def main():
     # 4. Build Email Body (use report text directly)
     email_body = report_text.strip()
     
+    # Determine draft status (check arguments, fallback to KST hour)
+    is_draft = "--draft" in sys.argv
+    if not is_draft and "--final" not in sys.argv:
+        # Get current KST hour (UTC+9)
+        from datetime import timezone, timedelta
+        kst_now = datetime.now(timezone(timedelta(hours=9)))
+        is_draft = kst_now.hour < 15
+        
+    # Clean title_val to avoid duplicate prefixes
+    title_clean = title_val.replace("[초안]", "").replace("[시황 보고서]", "").strip()
+    if not title_clean:
+        title_clean = f"아시아 및 국내 증시 시황 ({datetime.now().strftime('%m/%d')})"
+        
+    if is_draft:
+        subject = f"[초안] {title_clean}"
+    else:
+        subject = f"[시황 보고서] {title_clean}"
+    
     # 5. Send Email
     recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
-    if title_val:
-        subject = f"[시황 보고서] {title_val}"
-    else:
-        subject = f"[시황 보고서] 아시아 및 국내 증시 시황 ({datetime.now().strftime('%m/%d')})"
-    
     send_report_email(recipients, subject, email_body, output_file)
 
 if __name__ == '__main__':

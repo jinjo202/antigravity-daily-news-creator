@@ -518,8 +518,14 @@ def main():
                 venv_python = sys.executable
             v2_script = os.path.join(workspace_dir, "run_daily_v2.py")
             
+            args = [venv_python, v2_script]
+            if is_draft:
+                args.append("--draft")
+            else:
+                args.append("--final")
+                
             res = subprocess.run(
-                [venv_python, v2_script],
+                args,
                 cwd=workspace_dir, capture_output=True, text=True
             )
             log("Execution Output:\n" + (res.stdout or ""))
