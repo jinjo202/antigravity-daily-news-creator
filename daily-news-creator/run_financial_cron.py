@@ -419,8 +419,14 @@ def check_already_sent(subject_keyword):
 def main():
     log("=== US Daily Market Report Automation Start ===")
     
-    # Check if duplicate run
+    # Check if weekend in KST (5=Saturday, 6=Sunday)
+    kst_now = datetime.now(timezone(timedelta(hours=9)))
     is_forced = "--force" in sys.argv
+    if not is_forced and kst_now.weekday() in [5, 6]:
+        log(f"Today is {kst_now.strftime('%A')} (KST). Skipping weekend execution.")
+        log("=== US Daily Market Report Automation End ===\n")
+        return
+        
     if not is_forced and check_already_sent("[일일 금융시장 동향]"):
         log("US Daily Market Report already sent today. Skipping.")
         log("=== US Daily Market Report Automation End ===\n")

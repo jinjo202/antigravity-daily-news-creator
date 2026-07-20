@@ -414,9 +414,14 @@ def check_already_sent(subject_keyword):
 def main():
     log("=== Daily Market Report Automation Start ===")
     
-    # Check if duplicate run
-    is_forced = "--force" in sys.argv
+    # Check if weekend in KST (5=Saturday, 6=Sunday)
     kst_now = datetime.now(timezone(timedelta(hours=9)))
+    is_forced = "--force" in sys.argv
+    if not is_forced and kst_now.weekday() in [5, 6]:
+        log(f"Today is {kst_now.strftime('%A')} (KST). Skipping weekend execution.")
+        log("=== Daily Market Report Automation End ===\n")
+        return
+        
     is_draft = kst_now.hour < 15
     keyword = "[초안]" if is_draft else "[시황 보고서]"
     

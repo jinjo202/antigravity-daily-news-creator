@@ -5,12 +5,12 @@ on:
     branches:
       - main
   schedule:
-    # 07:05 KST is 22:05 UTC of the previous day
-    - cron: '5 22 * * *'
-    # 14:22 KST is 05:22 UTC (Draft Report)
-    - cron: '22 5 * * *'
-    # 15:43 KST is 06:43 UTC
-    - cron: '43 6 * * *'
+    # 07:05 KST is 22:05 UTC of the previous day (Runs Monday-Friday KST = Sunday-Thursday UTC)
+    - cron: '5 22 * * 0-4'
+    # 14:22 KST is 05:22 UTC (Draft Report, Runs Monday-Friday KST = Monday-Friday UTC)
+    - cron: '22 5 * * 1-5'
+    # 15:43 KST is 06:43 UTC (Final Report, Runs Monday-Friday KST = Monday-Friday UTC)
+    - cron: '43 6 * * 1-5'
   workflow_dispatch:
     inputs:
       report_type:
