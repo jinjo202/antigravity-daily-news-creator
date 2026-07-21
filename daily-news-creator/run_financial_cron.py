@@ -603,11 +603,29 @@ def main():
             if success:
                 log("[SUCCESS] US Daily Market Report emailed successfully!")
             else:
-                log("[ERROR] Email delivery failed.")
+                msg = "[ERROR] Email delivery failed."
+                log(msg)
+                try:
+                    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+                    send_via_gmail_smtp(recipients, "[오류 알림] 일일 금융시장 동향 이메일 전송 실패", f"에러 내용: {msg}\n\n최근 실행 로그를 점검해 주십시오.")
+                except Exception as alert_ex:
+                    log(f"Failed to send failure email alert: {alert_ex}")
         except Exception as ex:
-            log(f"[ERROR] Failed to send email: {ex}")
+            msg = f"[ERROR] Failed to send email: {ex}"
+            log(msg)
+            try:
+                recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+                send_via_gmail_smtp(recipients, "[오류 알림] 일일 금융시장 동향 이메일 전송 예외 발생", f"에러 내용: {msg}\n\n최근 실행 로그를 점검해 주십시오.")
+            except Exception as alert_ex:
+                log(f"Failed to send failure email alert: {alert_ex}")
     else:
-        log("[CRITICAL ERROR] No source report data found. Aborting.")
+        msg = "[CRITICAL ERROR] No source report data found. Aborting."
+        log(msg)
+        try:
+            recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+            send_via_gmail_smtp(recipients, "[오류 알림] 일일 금융시장 동향 자동 생성 실패 (소스 데이터 누락)", f"에러 내용: {msg}\n\n최근 실행 로그를 점검해 주십시오.")
+        except Exception as alert_ex:
+            log(f"Failed to send failure email alert: {alert_ex}")
         
     log("=== US Daily Market Report Automation End ===\n")
 

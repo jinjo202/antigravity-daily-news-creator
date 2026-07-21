@@ -714,11 +714,32 @@ def main():
             if res.returncode == 0:
                 log("[SUCCESS] Daily Market Report generated and emailed successfully!")
             else:
-                log(f"[ERROR] run_daily_v2.py failed with exit code {res.returncode}. Stderr: {res.stderr or ''}")
+                msg = f"[ERROR] run_daily_v2.py failed with exit code {res.returncode}. Stderr: {res.stderr or ''}"
+                log(msg)
+                try:
+                    from send_email import send_via_gmail_smtp
+                    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+                    send_via_gmail_smtp(recipients, "[오류 알림] 아시아 시황 자동 생성 실패 (v2 실행 실패)", f"에러 내용:\n{msg}\n\n최근 실행 로그를 점검해 주십시오.")
+                except Exception as alert_ex:
+                    log(f"Failed to send failure email alert: {alert_ex}")
         except Exception as ex:
-            log(f"[ERROR] Failed to execute run_daily_v2.py: {ex}")
+            msg = f"[ERROR] Failed to execute run_daily_v2.py: {ex}"
+            log(msg)
+            try:
+                from send_email import send_via_gmail_smtp
+                recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+                send_via_gmail_smtp(recipients, "[오류 알림] 아시아 시황 자동 생성 실패 (실행 예외)", f"에러 내용:\n{msg}\n\n최근 실행 로그를 점검해 주십시오.")
+            except Exception as alert_ex:
+                log(f"Failed to send failure email alert: {alert_ex}")
     else:
-        log("[CRITICAL ERROR] No source report data found. Report generation aborted.")
+        msg = "[CRITICAL ERROR] No source report data found. Report generation aborted."
+        log(msg)
+        try:
+            from send_email import send_via_gmail_smtp
+            recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+            send_via_gmail_smtp(recipients, "[오류 알림] 아시아 시황 자동 생성 실패 (소스 데이터 누락)", f"에러 내용:\n{msg}\n\n최근 실행 로그를 점검해 주십시오.")
+        except Exception as alert_ex:
+            log(f"Failed to send failure email alert: {alert_ex}")
         
     log("=== Daily Market Report Automation End ===\n")
 
