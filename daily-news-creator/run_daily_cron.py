@@ -571,10 +571,19 @@ def check_already_sent(subject_keyword):
                                 parsed_dt_kst = parsed_dt.astimezone(kst)
                                 today_kst = datetime.now(kst).date()
                                 if parsed_dt_kst.date() == today_kst:
-                                    log(f"[Duplicate Check] Already sent today: {subject} at {parsed_dt_kst}")
-                                    mail.close()
-                                    mail.logout()
-                                    return True
+                                    is_dup = True
+                                    # Ignore test runs sent before 12:00 PM when checking for draft report duplicate
+                                    if "[초안]" in subject_keyword and parsed_dt_kst.hour < 12:
+                                        is_dup = False
+                                    # Ignore test runs sent before 3:30 PM (15:30) when checking for final report duplicate
+                                    elif "[시황 보고서]" in subject_keyword and (parsed_dt_kst.hour < 15 or (parsed_dt_kst.hour == 15 and parsed_dt_kst.minute < 30)):
+                                        is_dup = False
+                                    
+                                    if is_dup:
+                                        log(f"[Duplicate Check] Already sent today: {subject} at {parsed_dt_kst}")
+                                        mail.close()
+                                        mail.logout()
+                                        return True
                             except Exception as ex:
                                 log(f"[Warning] Failed to parse sent date: {ex}")
         mail.close()

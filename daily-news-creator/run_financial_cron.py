@@ -417,10 +417,18 @@ def check_already_sent(subject_keyword):
                                 parsed_dt_kst = parsed_dt.astimezone(kst)
                                 today_kst = datetime.now(kst).date()
                                 if parsed_dt_kst.date() == today_kst:
-                                    log(f"[Duplicate Check] Already sent today: {subject} at {parsed_dt_kst}")
-                                    mail.close()
-                                    mail.logout()
-                                    return True
+                                    is_dup = True
+                                    # Ignore test runs sent before 7:30 AM when checking for global report duplicate
+                                    if "[일일 금융시장 동향]" in subject_keyword and parsed_dt_kst.hour < 7:
+                                        is_dup = False
+                                    elif "[일일 금융시장 동향]" in subject_keyword and parsed_dt_kst.hour == 7 and parsed_dt_kst.minute < 30:
+                                        is_dup = False
+                                    
+                                    if is_dup:
+                                        log(f"[Duplicate Check] Already sent today: {subject} at {parsed_dt_kst}")
+                                        mail.close()
+                                        mail.logout()
+                                        return True
                             except Exception as ex:
                                 log(f"[Warning] Failed to parse sent date: {ex}")
         mail.close()
