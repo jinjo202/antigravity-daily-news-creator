@@ -163,6 +163,7 @@ def parse_us_report(text):
                 date_str = f"2026년 {month}월 {day}일"
                 
     return {
+        'raw_text': text,
         'date': date_str,
         'sec1_text': " ".join(sec1_lines),
         'ytd_line': ytd_line,
