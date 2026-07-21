@@ -299,24 +299,34 @@ def generate_report_with_gemini(report_type):
         prompt = f"""
 오늘 날짜는 {today_date} ({today_short_slash}) 입니다.
 오늘 마감된(현지시간 전일 마감된) 뉴욕 증시 및 글로벌 금융시장 동향 보고서를 한국어로 작성해주세요.
-반드시 아래의 양식과 정보를 포함해야 합니다.
+반드시 아래의 양식과 정보를 포함해야 합니다:
 
 1. 제목 형식: **Title** : 일일 금융시장 동향({today_short_slash})
-2. 첫 줄: "안녕하십니까"
-3. 둘째 줄: "{today_short_slash} 국내외 금융시장 동향입니다."
-4. 본문 시작 부분: 핵심 요약 문장들을 **__볼드와 언더라인__** 기호(**__내용__**)를 사용하여 작성하세요.
-5. 지수 요약 라인:
-   형식: * {yes_short_slash}(연초대비): S&P500 등락률(연초대비등락률), 나스닥 등락률(연초대비등락률), Stoxx50 등락률(연초대비등락률)
-   예시: * 6/17(연초대비): S&P500 △1.2%(+8.4), 나스닥 △1.3(+12.0), Stoxx50 +0.7(+8.8)
-   (등락률 기호: 상승은 +, 하락은 △ 기호를 사용하세요. 연초대비등락률도 동일하게 기호를 붙이세요.)
-6. 본문 내용 문단들:
-   - 미국 증시 3대 지수(다우존스, S&P500, 나스닥) 마감 지수 수치 및 등락률
-   - 기술주 및 반도체 섹터 동향 (엔비디아, 마이크론 등 주요 종목 주가 및 구체적 등락률 수치 포함, 필라델피아 반도체 지수 등락률 포함)
-   - 미국 국채 금리 동향 (2년물 및 10년물 금리 마감 수치 및 bp 단위 변동폭)
-   - 원/달러 환율 마감 수치 및 국제 유가(WTI) 배럴당 마감 수치, 달러인덱스 및 엔/달러 환율 정보
-   - 미국 휴장 시 유럽 증시(Stoxx50, 독일 DAX 등) 위주로 작성하도록 지시
-   - 본문 내 주요 핵심 결론과 지표 변동 문장들은 반드시 **__볼드와 언더라인__** 기호(**__내용__**)로 강조해야 합니다.
-7. 마지막 줄: "감사합니다."
+
+중요 양식 및 구조 규칙 (반드시 준수):
+1. **절대로** "미국 증시 동향"이나 "**미국 증시 동향**" 과 같은 제목이나 섹션 헤더(**...**)를 넣지 마십시오.
+2. 모든 본문 내용은 아래 샘플처럼 약 20~30자 내외의 짧은 행 단위로 자연스러운 조사의 유무나 문맥 흐름에 맞추어 직접 엔터(줄바꿈)를 쳐서 나누어야 합니다. 긴 단락(Paragraph)으로 길게 이어 쓰지 마십시오.
+3. 주가/지수 숫자 요약 줄, 환율 및 금리 수치 줄은 **반드시 다른 서술형 문장과 한 줄에 섞어 쓰지 말고, 독립된 별개의 한 줄**로만 표기하십시오.
+4. 아래의 샘플의 문단 구도와 스타일을 완벽히 복제하여 작성하십시오:
+
+[샘플 문서의 문단 구조 및 템플릿]
+안녕하십니까
+
+{today_short_slash} 국내외 금융시장 동향입니다.
+
+**__뉴욕 증시는 매파적인 연준 기조와__**
+**__반도체 기술주 차익실현 물량에__**
+**__3대 지수 모두 급락하며 마감했습니다.__**
+
+* {yes_short_slash}(연초대비): S&P500 등락률(연초대비등락률), 나스닥 등락률(연초대비등락률), Stoxx50 등락률(연초대비등락률)
+
+미국 국채금리는 긴축 장기화 우려에
+10년물이 +4.0bp(4.120%) 급등했으며,
+원달러 환율은 전일 대비 15.0원 상승한
+1,530.0원 수준으로 마감했습니다.
+WTI 유가는 배럴당 78.5달러로 상승 마감함.
+
+감사합니다.
 
 중요 규칙 (필수 준수):
 - 어떠한 상황에서도 "데이터가 없다", "확인되지 않는다", "제공하기 어렵다", "검색이 불가능하다" 등의 거절 표현이나 사과 문구를 쓰지 마십시오.
@@ -327,9 +337,6 @@ def generate_report_with_gemini(report_type):
   * Euro Stoxx 50 연초대비 기준값: 4411.39
   * 계산법: ((오늘 종가 - 기준값) / 기준값) * 100
 - 만약 Google Finance 등 특정 금융 서비스에서 오늘 자 수치를 조회할 수 없거나 누락되어 있는 경우, Investing.com, Yahoo Finance 등 다른 공신력 있는 글로벌 금융 정보 사이트들의 최신 수치를 반드시 교차 참고하여 빈칸(공란)이나 누락 없이 모든 지수와 환율/금리 수치를 확실하게 기입하십시오.
-- 본문 중간중간 중요 핵심 명제나 결론은 **__볼드와 언더라인__** 스타일로 강조되어야 합니다.
-- 각 본문 문장 사이에 불필요한 빈 줄을 남발하지 말고 콤팩트하게 작성하세요.
-- 존댓말 서술형 본문으로 자연스럽게 작성하세요.
 """
     else:
         return None
@@ -342,23 +349,29 @@ def generate_report_with_gemini(report_type):
     }
     
     log(f"[Gemini] Requesting AI market report generation via {url}...")
-    try:
-        req = urllib.request.Request(
-            url, 
-            data=json.dumps(payload).encode("utf-8"), 
-            headers=headers, 
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=60) as response:
-            res_data = json.loads(response.read().decode("utf-8"))
-            text = res_data["candidates"][0]["content"]["parts"][0]["text"]
-            text_clean = re.sub(r"^```[a-zA-Z]*\n", "", text)
-            text_clean = re.sub(r"\n```$", "", text_clean)
-            text_clean = re.sub(r'\s*\[cite:\s*[^\]]+\]', '', text_clean)
-            return text_clean.strip()
-    except Exception as e:
-        log(f"[Gemini ERROR] Failed to call Gemini API: {e}")
-        return None
+    import time
+    for attempt in range(5):
+        try:
+            req = urllib.request.Request(
+                url, 
+                data=json.dumps(payload).encode("utf-8"), 
+                headers=headers, 
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=60) as response:
+                res_data = json.loads(response.read().decode("utf-8"))
+                text = res_data["candidates"][0]["content"]["parts"][0]["text"]
+                text_clean = re.sub(r"^```[a-zA-Z]*\n", "", text)
+                text_clean = re.sub(r"\n```$", "", text_clean)
+                text_clean = re.sub(r'\s*\[cite:\s*[^\]]+\]', '', text_clean)
+                return text_clean.strip()
+        except Exception as e:
+            log(f"[Gemini ERROR] Attempt {attempt+1}/5 failed to call Gemini API: {e}")
+            if attempt < 4:
+                sleep_sec = 3 * (attempt + 1)
+                log(f"Retrying after {sleep_sec} seconds...")
+                time.sleep(sleep_sec)
+    return None
 
 def check_already_sent(subject_keyword):
     """Checks Gmail Sent Mail to see if an email with subject_keyword was already sent today in KST."""

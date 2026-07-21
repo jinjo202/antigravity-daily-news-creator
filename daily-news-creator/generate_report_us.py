@@ -175,7 +175,18 @@ def parse_us_report(text):
 
 def wrap_korean_text(text, max_len=30):
     """Wraps Korean text strictly by spaces, ensuring no line exceeds max_len characters.
-    Words are never split across lines."""
+    Words are never split across lines. Certain price/index/YTD lines are kept on a single line."""
+    line_stripped = text.strip()
+    
+    # Check if this line should not be wrapped (YTD, Samsung stocks, exchange rates, bond yields)
+    if line_stripped.startswith('※') or (line_stripped.startswith('*') and '연초대비' in line_stripped):
+        return [text]
+    if line_stripped.startswith('(') and any(kw in line_stripped for kw in ['전자', '화재', '생명']):
+        return [text]
+    if ('△' in line_stripped or '+' in line_stripped or '%' in line_stripped) and any(kw in line_stripped for kw in ['원', 'bp', '%', 'pt', '지수', '상승', '하락', '금리']):
+        if len(line_stripped) < 75:
+            return [text]
+            
     is_bold_header = text.startswith('**') and text.endswith('**')
     if is_bold_header:
         text = text[2:-2].strip()
