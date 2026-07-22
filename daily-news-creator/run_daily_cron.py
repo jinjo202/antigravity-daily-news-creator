@@ -312,9 +312,22 @@ def get_samsung_group_stocks_line():
 
 def post_process_report(report_text):
     import re
+    # Clean out AI meta-commentary in parentheses (e.g. (이는 검색된 ...), (구체적인 변동 수치는 ...))
+    meta_patterns = [
+        r'\([^)]*검색된[^)]*\)',
+        r'\([^)]*변동 수치[^)]*\)',
+        r'\([^)]*확인되지 않아[^)]*\)',
+        r'\([^)]*장중 기록된 최고치[^)]*\)'
+    ]
+    for p in meta_patterns:
+        report_text = re.sub(p, '', report_text)
+        
+    # Clean up empty lines resulting from meta removals
+    report_text = re.sub(r'\n\s*\n\s*\n', '\n\n', report_text)
+
     naver_line = get_samsung_group_stocks_line()
     if not naver_line:
-        return report_text
+        return report_text.strip()
     
     # Check if (전자 ...) line already exists
     pattern = r'\(전자[^)]*화재[^)]*생명[^)]*\)'
@@ -342,7 +355,7 @@ def post_process_report(report_text):
             if thanks_idx != -1:
                 report_text = report_text[:thanks_idx].rstrip() + f"\n\n{naver_line}\n\n" + report_text[thanks_idx:]
                 
-    return report_text
+    return report_text.strip()
 
 def generate_report_with_gemini(report_type):
     """Generates market report using Gemini API with Google Search grounding."""
@@ -357,7 +370,7 @@ def generate_report_with_gemini(report_type):
     
     kst_now = datetime.now(timezone(timedelta(hours=9)))
     current_time_str = kst_now.strftime("%Y-%m-%d %H:%M")
-    is_draft = (kst_now.hour < 15) or ("--draft" in sys.argv)
+    is_draft = ("--final" not in sys.argv) and ((kst_now.hour < 15 or (kst_now.hour == 15 and kst_now.minute < 40)) or ("--draft" in sys.argv))
     today_date = kst_now.strftime("%Y-%m-%d")
     month_val = str(int(kst_now.strftime("%m")))
     day_val = str(int(kst_now.strftime("%d")))
@@ -587,8 +600,8 @@ def check_already_sent(subject_keyword):
                                     # Ignore test runs sent before 12:00 PM when checking for draft report duplicate
                                     if "[초안]" in subject_keyword and parsed_dt_kst.hour < 12:
                                         is_dup = False
-                                    # Ignore test runs sent before 3:30 PM (15:30) when checking for final report duplicate
-                                    elif "[시황 보고서]" in subject_keyword and (parsed_dt_kst.hour < 15 or (parsed_dt_kst.hour == 15 and parsed_dt_kst.minute < 30)):
+                                    # Ignore runs sent before 3:40 PM (15:40) when checking for final report duplicate
+                                    elif "[시황 보고서]" in subject_keyword and (parsed_dt_kst.hour < 15 or (parsed_dt_kst.hour == 15 and parsed_dt_kst.minute < 40)):
                                         is_dup = False
                                     
                                     if is_dup:
