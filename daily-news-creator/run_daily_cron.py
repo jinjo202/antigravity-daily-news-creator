@@ -310,7 +310,96 @@ def get_samsung_group_stocks_line():
         log(f"[Error fetching Samsung stocks] {e}")
         return None
 
-def post_process_report(report_text):
+def get_realtime_market_facts():
+    import urllib.request
+    import json
+    facts = {}
+    
+    def fetch_json(url):
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                return json.loads(resp.read().decode('utf-8'))
+        except Exception as e:
+            log(f"[Market API Warning] {url} -> {e}")
+            return None
+
+    # 1. KOSPI & KOSDAQ via Naver Finance API
+    kospi = fetch_json("https://m.stock.naver.com/api/index/KOSPI/basic")
+    if kospi and 'closePrice' in kospi:
+        facts['kospi_price'] = float(kospi['closePrice'].replace(',', ''))
+        facts['kospi_ratio'] = float(kospi['fluctuationsRatio'])
+        facts['kospi_diff'] = float(kospi['compareToPreviousClosePrice'])
+
+    kosdaq = fetch_json("https://m.stock.naver.com/api/index/KOSDAQ/basic")
+    if kosdaq and 'closePrice' in kosdaq:
+        facts['kosdaq_price'] = float(kosdaq['closePrice'].replace(',', ''))
+        facts['kosdaq_ratio'] = float(kosdaq['fluctuationsRatio'])
+
+    # 2. Samsung (005930) & SK Hynix (000660) via Naver API
+    samsung = fetch_json("https://m.stock.naver.com/api/stock/005930/basic")
+    if samsung and 'closePrice' in samsung:
+        facts['samsung_price'] = samsung['closePrice']
+        facts['samsung_ratio'] = float(samsung['fluctuationsRatio'])
+
+    hynix = fetch_json("https://m.stock.naver.com/api/stock/000660/basic")
+    if hynix and 'closePrice' in hynix:
+        facts['hynix_price'] = hynix['closePrice']
+        facts['hynix_ratio'] = float(hynix['fluctuationsRatio'])
+
+    # 3. Foreigner Net Buying on KOSPI via Naver API
+    trend = fetch_json("https://m.stock.naver.com/api/index/KOSPI/trend?page=1&pageSize=1")
+    if trend and isinstance(trend, dict) and 'foreignValue' in trend:
+        raw_val = trend.get('foreignValue', '0').replace(',', '')
+        try:
+            val_int = int(raw_val)
+            val_trillion = val_int / 10000.0  # Naver trend is in 100M (억원)
+            facts['foreign_buying_trillion'] = val_trillion
+            if abs(val_trillion) >= 1.0:
+                facts['foreign_buying_str'] = f"{val_trillion:.1f}조 원"
+            else:
+                facts['foreign_buying_str'] = f"{val_int}억 원"
+        except Exception:
+            pass
+
+    # 4. Nikkei 225 (^N225) & Shanghai Composite (000001.SS) via Yahoo Finance API
+    nikkei_yf = fetch_json("https://query1.finance.yahoo.com/v8/finance/chart/%5EN225?interval=1d&range=2d")
+    if nikkei_yf:
+        try:
+            meta = nikkei_yf['chart']['result'][0]['meta']
+            p = meta.get('regularMarketPrice')
+            prev = meta.get('chartPreviousClose')
+            if p and prev:
+                ratio = ((p - prev) / prev) * 100
+                facts['nikkei_price'] = p
+                facts['nikkei_ratio'] = ratio
+        except Exception:
+            pass
+
+    shanghai_yf = fetch_json("https://query1.finance.yahoo.com/v8/finance/chart/000001.SS?interval=1d&range=2d")
+    if shanghai_yf:
+        try:
+            meta = shanghai_yf['chart']['result'][0]['meta']
+            p = meta.get('regularMarketPrice')
+            prev = meta.get('chartPreviousClose')
+            if p and prev:
+                ratio = ((p - prev) / prev) * 100
+                facts['shanghai_price'] = p
+                facts['shanghai_ratio'] = ratio
+        except Exception:
+            pass
+
+    # Compute YTDs (2025 Baseline: KOSPI 4214.17, Nikkei 50339.48, Shanghai 3968.84)
+    if 'kospi_price' in facts:
+        facts['kospi_ytd'] = ((facts['kospi_price'] - 4214.17) / 4214.17) * 100
+    if 'nikkei_price' in facts:
+        facts['nikkei_ytd'] = ((facts['nikkei_price'] - 50339.48) / 50339.48) * 100
+    if 'shanghai_price' in facts:
+        facts['shanghai_ytd'] = ((facts['shanghai_price'] - 3968.84) / 3968.84) * 100
+
+    return facts
+
+def post_process_report(report_text, is_draft=False):
     import re
     # Clean out AI meta-commentary in parentheses (e.g. (이는 검색된 ...), (구체적인 변동 수치는 ...))
     meta_patterns = [
@@ -325,35 +414,57 @@ def post_process_report(report_text):
     # Clean up empty lines resulting from meta removals
     report_text = re.sub(r'\n\s*\n\s*\n', '\n\n', report_text)
 
-    naver_line = get_samsung_group_stocks_line()
-    if not naver_line:
-        return report_text.strip()
-    
-    # Check if (전자 ...) line already exists
-    pattern = r'\(전자[^)]*화재[^)]*생명[^)]*\)'
-    if re.search(pattern, report_text):
-        report_text = re.sub(pattern, naver_line, report_text)
-    else:
-        # Look for the start of the next section
-        start_idx = -1
-        for h in ['**한국 증시 마감 상황**', '**한국 증시 장중 상황**', '한국 증시 마감 상황', '한국 증시 장중 상황']:
-            start_idx = report_text.find(h)
-            if start_idx != -1:
-                break
+    # Ingest real-time market facts from Naver & Yahoo APIs
+    facts = get_realtime_market_facts()
+    if 'kospi_ratio' in facts and 'nikkei_ratio' in facts and 'shanghai_ratio' in facts:
+        kst_now = datetime.now(timezone(timedelta(hours=9)))
+        month_val = str(int(kst_now.strftime("%m")))
+        day_val = str(int(kst_now.strftime("%d")))
+        today_short_slash = f"{month_val}/{day_val}"
         
-        if start_idx != -1:
-            next_header = re.search(r'\n\s*(\*\*삼성전자|\*\* 주요 대형주|\*\*삼성전자, SK하이닉스|\*\*삼성전자/SK하이닉스|삼성전자, SK하이닉스)', report_text[start_idx:])
-            if next_header:
-                insert_idx = start_idx + next_header.start()
-                report_text = report_text[:insert_idx].rstrip() + f"\n{naver_line}\n\n" + report_text[insert_idx:].lstrip()
+        kr_sign = '+' if facts['kospi_ratio'] >= 0 else '△'
+        kr_str = f"한국 {kr_sign}{abs(facts['kospi_ratio']):.1f}%(+{facts['kospi_ytd']:.1f}%)"
+        
+        nk_sign = '+' if facts['nikkei_ratio'] >= 0 else '△'
+        nk_ytd_sign = '+' if facts['nikkei_ytd'] >= 0 else '△'
+        nk_str = f"일본 {nk_sign}{abs(facts['nikkei_ratio']):.2f}%({nk_ytd_sign}{abs(facts['nikkei_ytd']):.1f}%)"
+        
+        sh_sign = '+' if facts['shanghai_ratio'] >= 0 else '△'
+        sh_ytd_sign = '+' if facts['shanghai_ytd'] >= 0 else '△'
+        sh_str = f"중국 {sh_sign}{abs(facts['shanghai_ratio']):.2f}%({sh_ytd_sign}{abs(facts['shanghai_ytd']):.1f}%)"
+        
+        if is_draft:
+            summary_line = f"※ {today_short_slash} 장중잠정(연초대비): {kr_str}, {nk_str}, {sh_str}"
+        else:
+            summary_line = f"※ {today_short_slash}(연초대비): {kr_str}, {nk_str}, {sh_str}"
+            
+        report_text = re.sub(r'※[^\n]+', summary_line, report_text)
+
+    naver_line = get_samsung_group_stocks_line()
+    if naver_line:
+        pattern = r'\(전자[^)]*화재[^)]*생명[^)]*\)'
+        if re.search(pattern, report_text):
+            report_text = re.sub(pattern, naver_line, report_text)
+        else:
+            start_idx = -1
+            for h in ['**한국 증시 마감 상황**', '**한국 증시 장중 상황**', '한국 증시 마감 상황', '한국 증시 장중 상황']:
+                start_idx = report_text.find(h)
+                if start_idx != -1:
+                    break
+            
+            if start_idx != -1:
+                next_header = re.search(r'\n\s*(\*\*삼성전자|\*\* 주요 대형주|\*\*삼성전자, SK하이닉스|\*\*삼성전자/SK하이닉스|삼성전자, SK하이닉스)', report_text[start_idx:])
+                if next_header:
+                    insert_idx = start_idx + next_header.start()
+                    report_text = report_text[:insert_idx].rstrip() + f"\n{naver_line}\n\n" + report_text[insert_idx:].lstrip()
+                else:
+                    thanks_idx = report_text.find("감사합니다")
+                    if thanks_idx != -1:
+                        report_text = report_text[:thanks_idx].rstrip() + f"\n\n{naver_line}\n\n" + report_text[thanks_idx:]
             else:
                 thanks_idx = report_text.find("감사합니다")
                 if thanks_idx != -1:
                     report_text = report_text[:thanks_idx].rstrip() + f"\n\n{naver_line}\n\n" + report_text[thanks_idx:]
-        else:
-            thanks_idx = report_text.find("감사합니다")
-            if thanks_idx != -1:
-                report_text = report_text[:thanks_idx].rstrip() + f"\n\n{naver_line}\n\n" + report_text[thanks_idx:]
                 
     return report_text.strip()
 
@@ -541,7 +652,7 @@ def generate_report_with_gemini(report_type):
                 text_clean = re.sub(r'\s*\[cite:\s*[^\]]+\]', '', text_clean)
                 text_clean = text_clean.strip()
                 try:
-                    text_clean = post_process_report(text_clean)
+                    text_clean = post_process_report(text_clean, is_draft=is_draft)
                 except Exception as pe:
                     log(f"[Post-process Warning] Failed to post-process Samsung stocks: {pe}")
                 return text_clean
