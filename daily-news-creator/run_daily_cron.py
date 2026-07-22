@@ -389,6 +389,29 @@ def get_realtime_market_facts():
         except Exception:
             pass
 
+    # 5. USD/KRW Exchange Rate via Naver Market Index
+    try:
+        url_fx = "https://finance.naver.com/marketindex/"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        req = urllib.request.Request(url_fx, headers=headers)
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            html = resp.read().decode('euc-kr', errors='ignore')
+            m = re.search(r'<span class="blind">미국 USD</span>[\s\S]*?<span class="value">([^<]+)</span>[\s\S]*?<span class="change">\s*([^<]+)</span>[\s\S]*?<span class="blind">([^<]+)</span>', html)
+            if m:
+                val = m.group(1)
+                change = m.group(2).strip()
+                direction = m.group(3).strip()
+                sign = '△' if '하락' in direction else '+'
+                effect = '원화 강세' if '하락' in direction else '원화 약세'
+                verb = "내린" if '하락' in direction else "오른"
+                facts['usdkrw_price'] = val
+                facts['usdkrw_change'] = change
+                facts['usdkrw_sign'] = sign
+                facts['usdkrw_effect'] = effect
+                facts['usdkrw_str'] = f"원달러 환율은 전일 대비 {sign}{change}원 {verb} {val}원에 마감하며 {effect}를 나타냈고"
+    except Exception as e:
+        log(f"[FX Warning] {e}")
+
     # Compute YTDs (2025 Baseline: KOSPI 4214.17, Nikkei 50339.48, Shanghai 3968.84)
     if 'kospi_price' in facts:
         facts['kospi_ytd'] = ((facts['kospi_price'] - 4214.17) / 4214.17) * 100
@@ -439,6 +462,10 @@ def post_process_report(report_text, is_draft=False):
             summary_line = f"※ {today_short_slash}(연초대비): {kr_str}, {nk_str}, {sh_str}"
             
         report_text = re.sub(r'※[^\n]+', summary_line, report_text)
+
+    # Clean up USD/KRW exchange rate sentence if hallucinated
+    if 'usdkrw_str' in facts:
+        report_text = re.sub(r'원달러 환율은[\s\S]*?나타냈고,', facts['usdkrw_str'] + ',', report_text)
 
     # Clean up 삼성전자 sentence if hallucinated
     if 'samsung_price' in facts and 'samsung_ratio' in facts:
