@@ -85,9 +85,9 @@ def main():
         title_clean = f"아시아 및 국내 증시 시황 ({datetime.now().strftime('%m/%d')})"
         
     if is_draft:
-        subject = f"[초안] {title_clean}"
+        subject = f"[초안] {title_clean} (안티그래비티버전)"
     else:
-        subject = f"[시황 보고서] {title_clean}"
+        subject = f"[시황 보고서] {title_clean} (안티그래비티버전)"
     
     # 5. Send Email
     recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]

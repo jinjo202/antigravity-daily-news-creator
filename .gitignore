@@ -19,3 +19,6 @@ chrome_temp_cache/
 
 # Generated Word Documents
 *.docx
+
+# Report Cache Files
+*.txt

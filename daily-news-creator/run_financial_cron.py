@@ -274,7 +274,7 @@ def parse_eml_to_markdown(eml_path):
         return None
 
 def generate_report_with_gemini(report_type):
-    """Generates market report using Gemini API with Google Search grounding."""
+    """Generates market report using Gemini API with Google Search grounding and yfinance data."""
     load_env_file(os.path.join(workspace_dir, ".env"))
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -284,6 +284,46 @@ def generate_report_with_gemini(report_type):
     import urllib.request
     import json
     
+    # 1. Fetch real market data using yfinance to prevent hallucinations
+    market_data_text = ""
+    try:
+        import yfinance as yf
+        import pandas as pd
+        
+        log("[Gemini] Fetching actual market data via yfinance to prevent hallucination...")
+        tickers = {
+            "S&P 500": "^GSPC",
+            "나스닥(Nasdaq)": "^IXIC",
+            "다우존스(Dow)": "^DJI",
+            "Euro Stoxx 50": "^STOXX50E",
+            "미 국채 10년물 금리(%)": "^TNX",
+            "원달러 환율(KRW/USD)": "KRW=X",
+            "WTI 원유(USD/배럴)": "CL=F"
+        }
+        
+        results = []
+        for name, ticker in tickers.items():
+            try:
+                data = yf.Ticker(ticker).history(period="5d")
+                if not data.empty:
+                    closes = data['Close']
+                    today_val = closes.iloc[-1]
+                    if len(closes) > 1:
+                        prev_val = closes.iloc[-2]
+                        diff = today_val - prev_val
+                        pct_diff = (diff / prev_val) * 100
+                        results.append(f"- {name}: 오늘 마감 {today_val:.2f} (전일 종가 {prev_val:.2f}, 변동폭 {diff:+.2f}, {pct_diff:+.2f}%)")
+                    else:
+                        results.append(f"- {name}: 오늘 마감 {today_val:.2f}")
+            except Exception as e:
+                log(f"[Warning] Failed to fetch {name}: {e}")
+                
+        if results:
+            market_data_text = "【실제 시장 데이터(가장 정확한 종가 기준)】\n" + "\n".join(results) + "\n\n(주의: 위 수치들은 실제 시장 마감 데이터입니다. 반드시 위 수치들을 보고서의 사실 기반으로 우선 사용하여 작성하세요.)"
+    except Exception as e:
+        log(f"[Warning] Failed to run yfinance fetching logic: {e}")
+        market_data_text = "(yfinance 데이터를 불러오지 못했습니다. 구글 검색 결과에 의존하십시오.)"
+
     today_date = datetime.now().strftime("%Y-%m-%d")
     month_val = str(int(datetime.now().strftime("%m")))
     day_val = str(int(datetime.now().strftime("%d")))
@@ -299,6 +339,9 @@ def generate_report_with_gemini(report_type):
         prompt = f"""
 오늘 날짜는 {today_date} ({today_short_slash}) 입니다.
 오늘 마감된(현지시간 전일 마감된) 뉴욕 증시 및 글로벌 금융시장 동향 보고서를 한국어로 작성해주세요.
+
+{market_data_text}
+
 반드시 아래의 양식과 정보, 상세한 문단 구조를 포함해야 합니다:
 
 1. 제목 형식: **Title** : 일일 금융시장 동향({today_short_slash})(안티그래비티버전)
@@ -344,19 +387,19 @@ WTI 유가는 배럴당 75.5달러로 하락 마감했습니다.
 
 중요 규칙 (필수 준수):
 - 어떠한 상황에서도 "데이터가 없다", "확인되지 않는다", "제공하기 어렵다", "검색이 불가능하다", "정보 없음", "정보없음" 등의 거절 표현이나 사과 문구를 쓰지 마십시오.
-- 만약 특정 수치를 바로 검색할 수 없다면, 실시간 가격/가장 최근 가격/장중 가격을 사용하여 자연스럽게 보고서를 완성하십시오.
+- 만약 특정 수치를 바로 검색할 수 없다면, 위에 제공된 【실제 시장 데이터】를 최우선으로 참고하시고, 그래도 없다면 구글 검색을 활용하십시오.
+- 제공된 원달러 환율, 미 국채 10년물 금리 등 숫자가 있다면 그 숫자를 **그대로 인용**하고 전일 대비 상승/하락 여부 코멘트도 그 수치 변동폭을 기준으로 정확하게 작성하십시오. (할루시네이션 절대 금지)
 - 연초대비(YTD) 등락률은 뉴스 검색 결과에 직접 나오지 않더라도 아래의 2025년 말 종가 기준을 참고하여 오늘 수치와 직접 계산하여 반드시 소수점 첫째짜리까지 기입하십시오.
   * S&P 500 연초대비 기준값: 6845.50
   * 나스닥 연초대비 기준값: 23241.99
   * Euro Stoxx 50 연초대비 기준값: 4411.39
   * 계산법: ((오늘 종가 - 기준값) / 기준값) * 100
-- Stoxx50 (유로스톡스 50) 수치가 '정보 없음' 또는 누락으로 나오지 않도록 각별히 유의하십시오. 반드시 "Euro Stoxx 50 index" 또는 "유로스톡스 50"을 검색하여 실제 종가(또는 실시간 지수)를 기입해야 합니다.
-- 만약 Google Finance 등 특정 금융 서비스에서 오늘 자 수치를 조회할 수 없거나 누락되어 있는 경우, Investing.com, Yahoo Finance 등 다른 공신력 있는 글로벌 금융 정보 사이트들의 최신 수치를 반드시 교차 참고하여 빈칸(공란)이나 누락 없이 모든 지수와 환율/금리 수치를 확실하게 기입하십시오.
 """
     else:
         return None
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    # Use gemini-1.5-pro model for reliability and reduced hallucination compared to flash
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -379,11 +422,18 @@ WTI 유가는 배럴당 75.5달러로 하락 마감했습니다.
                 text_clean = re.sub(r"^```[a-zA-Z]*\n", "", text)
                 text_clean = re.sub(r"\n```$", "", text_clean)
                 text_clean = re.sub(r'\s*\[cite:\s*[^\]]+\]', '', text_clean)
-                return text_clean.strip()
+                text_clean = text_clean.strip()
+                # Remove '**--' from the beginning of the text if it exists
+                if text_clean.startswith("**--"):
+                    text_clean = text_clean[4:].strip()
+                # Or replace all occurrences just in case
+                text_clean = text_clean.replace("**--", "")
+                return text_clean
         except Exception as e:
             log(f"[Gemini ERROR] Attempt {attempt+1}/5 failed to call Gemini API: {e}")
             if attempt < 4:
-                sleep_sec = 3 * (attempt + 1)
+                # Exponential backoff tailored for heavily rate-limited IPs in GitHub Actions
+                sleep_sec = 10 * (attempt + 1)
                 log(f"Retrying after {sleep_sec} seconds...")
                 time.sleep(sleep_sec)
     return None
@@ -583,9 +633,9 @@ def main():
                 title_val = cleaned_first_line[colon_idx + 1:].strip()
                 
         if title_val:
-            subject = f"[일일 금융시장 동향] {title_val}"
+            subject = f"[일일 금융시장 동향] {title_val} (안티그래비티버전)"
         else:
-            subject = f"[일일 금융시장 동향] 미국시황동향 ({datetime.now().strftime('%m/%d')})"
+            subject = f"[일일 금융시장 동향] 미국시황동향 ({datetime.now().strftime('%m/%d')}) (안티그래비티버전)"
             
         # Determine document date string for the Word document
         today_str = datetime.now().strftime("%Y%m%d")

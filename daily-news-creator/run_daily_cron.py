@@ -362,33 +362,32 @@ def get_realtime_market_facts():
         except Exception:
             pass
 
-    # 4. Nikkei 225 (^N225) & Shanghai Composite (000001.SS) via Yahoo Finance API
-    nikkei_yf = fetch_json("https://query1.finance.yahoo.com/v8/finance/chart/%5EN225?interval=1d&range=2d")
-    if nikkei_yf:
-        try:
-            meta = nikkei_yf['chart']['result'][0]['meta']
-            p = meta.get('regularMarketPrice')
-            prev = meta.get('chartPreviousClose')
-            if p and prev:
-                ratio = ((p - prev) / prev) * 100
-                facts['nikkei_price'] = p
-                facts['nikkei_ratio'] = ratio
-        except Exception:
-            pass
+    # 4. Nikkei 225 (^N225) & Shanghai Composite (000001.SS) via yfinance
+    try:
+        import yfinance as yf
+        import pandas as pd
+        
+        # Nikkei 225
+        nikkei_data = yf.Ticker("^N225").history(period="5d")
+        if not nikkei_data.empty and len(nikkei_data) >= 2:
+            closes = nikkei_data['Close']
+            today_val = closes.iloc[-1]
+            prev_val = closes.iloc[-2]
+            ratio = ((today_val - prev_val) / prev_val) * 100
+            facts['nikkei_price'] = float(today_val)
+            facts['nikkei_ratio'] = float(ratio)
 
-    shanghai_yf = fetch_json("https://query1.finance.yahoo.com/v8/finance/chart/000001.SS?interval=1d&range=2d")
-    if shanghai_yf:
-        try:
-            meta = shanghai_yf['chart']['result'][0]['meta']
-            p = meta.get('regularMarketPrice')
-            prev = meta.get('chartPreviousClose')
-            if p and prev:
-                ratio = ((p - prev) / prev) * 100
-                facts['shanghai_price'] = p
-                facts['shanghai_ratio'] = ratio
-        except Exception:
-            pass
-
+        # Shanghai Composite
+        shanghai_data = yf.Ticker("000001.SS").history(period="5d")
+        if not shanghai_data.empty and len(shanghai_data) >= 2:
+            closes = shanghai_data['Close']
+            today_val = closes.iloc[-1]
+            prev_val = closes.iloc[-2]
+            ratio = ((today_val - prev_val) / prev_val) * 100
+            facts['shanghai_price'] = float(today_val)
+            facts['shanghai_ratio'] = float(ratio)
+    except Exception as e:
+        log(f"[YFinance Warning] Failed to fetch Nikkei/Shanghai via yfinance: {e}")
     # 5. USD/KRW Exchange Rate via Naver Market Index
     try:
         url_fx = "https://finance.naver.com/marketindex/"
@@ -710,7 +709,8 @@ def generate_report_with_gemini(report_type):
     else:
         return None
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    # Use gemini-1.5-pro model for reliability and reduced hallucination compared to flash
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -734,6 +734,10 @@ def generate_report_with_gemini(report_type):
                 text_clean = re.sub(r"\n```$", "", text_clean)
                 text_clean = re.sub(r'\s*\[cite:\s*[^\]]+\]', '', text_clean)
                 text_clean = text_clean.strip()
+                # Remove '**--' from the beginning of the text if it exists
+                if text_clean.startswith("**--"):
+                    text_clean = text_clean[4:].strip()
+                text_clean = text_clean.replace("**--", "")
                 try:
                     text_clean = post_process_report(text_clean, is_draft=is_draft)
                 except Exception as pe:
@@ -742,7 +746,8 @@ def generate_report_with_gemini(report_type):
         except Exception as e:
             log(f"[Gemini ERROR] Attempt {attempt+1}/5 failed to call Gemini API: {e}")
             if attempt < 4:
-                sleep_sec = 3 * (attempt + 1)
+                # Exponential backoff tailored for heavily rate-limited IPs in GitHub Actions
+                sleep_sec = 10 * (attempt + 1)
                 log(f"Retrying after {sleep_sec} seconds...")
                 time.sleep(sleep_sec)
     return None
