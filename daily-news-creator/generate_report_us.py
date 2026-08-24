@@ -101,7 +101,14 @@ def convert_to_nominal(sentence):
 
 def parse_us_report(text):
     """Parses raw US market report text into structured sections."""
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    lines = []
+    for line in text.splitlines():
+        line = line.strip()
+        # Remove leading **-- or --
+        line = re.sub(r'^\*\*\-\-\s*', '', line)
+        line = re.sub(r'^\-\-\s*', '', line)
+        if line:
+            lines.append(line)
     
     title = ""
     greeting = ""

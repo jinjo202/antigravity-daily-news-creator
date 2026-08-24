@@ -90,7 +90,7 @@ def main():
         subject = f"[시황 보고서] {title_clean}"
     
     # 5. Send Email
-    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
     send_report_email(recipients, subject, email_body, output_file)
 
 if __name__ == '__main__':

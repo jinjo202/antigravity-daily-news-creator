@@ -301,7 +301,7 @@ def generate_report_with_gemini(report_type):
 오늘 마감된(현지시간 전일 마감된) 뉴욕 증시 및 글로벌 금융시장 동향 보고서를 한국어로 작성해주세요.
 반드시 아래의 양식과 정보, 상세한 문단 구조를 포함해야 합니다:
 
-1. 제목 형식: **Title** : 일일 금융시장 동향({today_short_slash})
+1. 제목 형식: **Title** : 일일 금융시장 동향({today_short_slash})(안티그래비티버전)
 
 중요 양식 및 구조 규칙 (반드시 준수):
 1. **절대로** "미국 증시 동향"이나 "**미국 증시 동향**" 과 같은 제목이나 섹션 헤더(**...**)를 넣지 마십시오.
@@ -343,13 +343,14 @@ WTI 유가는 배럴당 75.5달러로 하락 마감했습니다.
 감사합니다.
 
 중요 규칙 (필수 준수):
-- 어떠한 상황에서도 "데이터가 없다", "확인되지 않는다", "제공하기 어렵다", "검색이 불가능하다" 등의 거절 표현이나 사과 문구를 쓰지 마십시오.
+- 어떠한 상황에서도 "데이터가 없다", "확인되지 않는다", "제공하기 어렵다", "검색이 불가능하다", "정보 없음", "정보없음" 등의 거절 표현이나 사과 문구를 쓰지 마십시오.
 - 만약 특정 수치를 바로 검색할 수 없다면, 실시간 가격/가장 최근 가격/장중 가격을 사용하여 자연스럽게 보고서를 완성하십시오.
 - 연초대비(YTD) 등락률은 뉴스 검색 결과에 직접 나오지 않더라도 아래의 2025년 말 종가 기준을 참고하여 오늘 수치와 직접 계산하여 반드시 소수점 첫째짜리까지 기입하십시오.
   * S&P 500 연초대비 기준값: 6845.50
   * 나스닥 연초대비 기준값: 23241.99
   * Euro Stoxx 50 연초대비 기준값: 4411.39
   * 계산법: ((오늘 종가 - 기준값) / 기준값) * 100
+- Stoxx50 (유로스톡스 50) 수치가 '정보 없음' 또는 누락으로 나오지 않도록 각별히 유의하십시오. 반드시 "Euro Stoxx 50 index" 또는 "유로스톡스 50"을 검색하여 실제 종가(또는 실시간 지수)를 기입해야 합니다.
 - 만약 Google Finance 등 특정 금융 서비스에서 오늘 자 수치를 조회할 수 없거나 누락되어 있는 경우, Investing.com, Yahoo Finance 등 다른 공신력 있는 글로벌 금융 정보 사이트들의 최신 수치를 반드시 교차 참고하여 빈칸(공란)이나 누락 없이 모든 지수와 환율/금리 수치를 확실하게 기입하십시오.
 """
     else:
@@ -609,7 +610,7 @@ def main():
         except Exception as docx_ex:
             log(f"[ERROR] Failed to generate Word document: {docx_ex}")
             
-        recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+        recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
         
         log(f"Sending email: '{subject}' to {recipients} with attachment {attachment_path}...")
         try:
@@ -620,7 +621,7 @@ def main():
                 msg = "[ERROR] Email delivery failed."
                 log(msg)
                 try:
-                    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+                    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
                     send_via_gmail_smtp(recipients, "[오류 알림] 일일 금융시장 동향 이메일 전송 실패", f"에러 내용: {msg}\n\n최근 실행 로그를 점검해 주십시오.")
                 except Exception as alert_ex:
                     log(f"Failed to send failure email alert: {alert_ex}")
@@ -628,7 +629,7 @@ def main():
             msg = f"[ERROR] Failed to send email: {ex}"
             log(msg)
             try:
-                recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+                recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
                 send_via_gmail_smtp(recipients, "[오류 알림] 일일 금융시장 동향 이메일 전송 예외 발생", f"에러 내용: {msg}\n\n최근 실행 로그를 점검해 주십시오.")
             except Exception as alert_ex:
                 log(f"Failed to send failure email alert: {alert_ex}")
@@ -636,7 +637,7 @@ def main():
         msg = "[CRITICAL ERROR] No source report data found. Aborting."
         log(msg)
         try:
-            recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+            recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
             send_via_gmail_smtp(recipients, "[오류 알림] 일일 금융시장 동향 자동 생성 실패 (소스 데이터 누락)", f"에러 내용: {msg}\n\n최근 실행 로그를 점검해 주십시오.")
         except Exception as alert_ex:
             log(f"Failed to send failure email alert: {alert_ex}")

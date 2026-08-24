@@ -1,0 +1,185 @@
+=== General Properties ===
+Top margin: 85.05 pt
+Bottom margin: 72.0 pt
+Left margin: 72.0 pt
+Right margin: 72.0 pt
+
+P0: 금일 아시아 증시 시황 보고 드립니다.
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '금일 ' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+    R1: '아시아' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+    R2: ' 증시 ' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+    R3: '시황' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+    R4: ' 보고 드립니다.' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P2: 아시아 증시는 반도체 업종에 대한 우려감 및
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '아시아' | Font: 바탕체 | Size: None | Bold: True | Color: 000000
+    R1: ' 증시는 반도체 업종에 대한 우려감 및' | Font: 바탕체 | Size: None | Bold: True | Color: 000000
+
+P3: 이란 사태 여파로 대부분 하락세를 기록했으며,
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '이란 사태 여파로 대부분 하락세를 기록' | Font: 바탕체 | Size: None | Bold: True | Color: 000000
+    R1: '했으며,' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P4: 홍콩 증시는 딥시크의 자체 AI 칩 개발 소식에
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '홍콩 증시는 딥시크의 자체 AI 칩 개발 소식에' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P5: +3%대 상승 중입니다.
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '+3%대 상승 중입니다.' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P6: ※ 7.8(연초대비): 한국 △5.4%(+72.0), 일본 △2.1%(+32.7), 중국 △0.5%(+0.1)
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '※ 7.8(연초대비): 한국 △5.4%(+72.0), 일본 △2.1%(+32.7), 중국 ' | Font: 바탕체 | Size: 11.0 pt | Bold: None | Color: 0000FF
+    R1: '△0.5%(+0.1)' | Font: 바탕체 | Size: 11.0 pt | Bold: None | Color: 0000FF
+
+P8: 한국 증시는 오전장에서 플러스를 보이기도 했으나,
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '한국 증시는 오전장에서 플러스를 보이기도 했으나,' | Font: 바탕체 | Size: None | Bold: True | Color: 000000
+
+P9: 오후 들어 하락하면서 5월 저점(7,209pt)에 근접,
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '오후 들어 하락하면서 5월 저점(7,209pt)에 근접,' | Font: 바탕체 | Size: None | Bold: True | Color: 000000
+
+P10: △5.4% 하락, 7,247pt를 기록했습니다.
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '△5.4% 하락, 7,247pt를 기록' | Font: 바탕체 | Size: None | Bold: True | Color: 000000
+    R1: '했습니다.' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P12: 반도체에서 비반도체로 로테이션이 나오는 미국과 달리
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '반도체에서 비반도체로 로테이션이 나오는 미국과 달리' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P13: 주식 전반에서 매도세가 일어났으며,
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '주식 전반에서 매도세가 일어났으며,' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P14: 상승종목 비율이 13%에 그쳤습니다.
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '상승종목 비율이 13%에 그쳤습니다.' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P15: (전자 △6.3%, 화재 △1.6%, 생명 △7.7%)
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '(전자 △6.3%, 화재 △1.6%, 생명 △7.7%)' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P17: 원달러는 SK하이닉스 ADR 상장을 앞두고
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '원달러는 SK하이닉스 ADR 상장을 앞두고' | Font: 바탕체 | Size: None | Bold: True | Color: 000000
+
+P18: 원화 강세가 지속되면서 △12원(1,504원) 하락했고,
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '원화 강세가 지속되면서 △12원(1,504원) 하락' | Font: 바탕체 | Size: None | Bold: True | Color: 000000
+    R1: '했고,' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P19: 국채금리는 미, 이란 우려 재점화에 따른
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '국채금리는 미, 이란 우려 재점화에 따른' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P20: 미 국채금리 급등 영향에 10년물이 +3bp(4.24%) 상승했으나,
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '미 국채금리 급등 영향에 10년물이 +3bp(4.24%) 상승했으나,' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P21: 5년, 3년 중단기물은 각각 △2bp, △1bp하락했습니다.
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '5년, 3년 중단기물은 각각 △2bp, △1bp하락했습니다.' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P23: 일본 역시 기술주 전반 매도 분위기에 하락했고,
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '일본 역시 기술주 전반 매도 분위기에 하락했고,' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P24: 중국은 그나마 홍콩 상승 영향에 소폭 하락했습니다.
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '중국은 그나마 ' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+    R1: '홍콩 상승 영향에 소폭 하락했습니다.' | Font: 바탕체 | Size: None | Bold: None | Color: 222222
+
+P26: 이제 코스피 주가수익비율은 6.2배 수준까지 하락,
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '이제 코스피 주가수익비율은 6.2배 수준까지 하락, ' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P27: 금융위기 당시를 밑돌면서 과매도 구간에 진입한 것으로 보이나
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '금융위기 당시를 밑돌면서 과매도 구간에 진입한 것으로 보이나' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P28: 여전히 수급이 불안하여 고변동성은 지속될 수 있습니다.
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '여전히 수급이 불안하여 고변동성은 지속될 수 있습니다. ' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+
+P30: 금일 아시아 시장 반영한 손익은 아래와 같습니다.
+  Style: Normal (Web) | Align: None
+  Space Before: None pt
+  Space After: 8.0 pt
+  Line Spacing: 220980
+    R0: '금일 ' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+    R1: '아시아' | Font: 바탕체 | Size: None | Bold: None | Color: 000000
+    R2: ' 시장 반영한 손익은 아래와 같습니다.' | Font: 바탕체 | Size: None | Bold: None | Color: 000000

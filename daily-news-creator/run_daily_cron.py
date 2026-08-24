@@ -446,7 +446,8 @@ def post_process_report(report_text, is_draft=False):
         today_short_slash = f"{month_val}/{day_val}"
         
         kr_sign = '+' if facts['kospi_ratio'] >= 0 else '△'
-        kr_str = f"한국 {kr_sign}{abs(facts['kospi_ratio']):.1f}%(+{facts['kospi_ytd']:.1f}%)"
+        kr_ytd_sign = '+' if facts['kospi_ytd'] >= 0 else '△'
+        kr_str = f"한국 {kr_sign}{abs(facts['kospi_ratio']):.1f}%({kr_ytd_sign}{abs(facts['kospi_ytd']):.1f}%)"
         
         nk_sign = '+' if facts['nikkei_ratio'] >= 0 else '△'
         nk_ytd_sign = '+' if facts['nikkei_ytd'] >= 0 else '△'
@@ -485,6 +486,28 @@ def post_process_report(report_text, is_draft=False):
         else:
             h_replacement = f"SK하이닉스는 전일 대비 {h_ratio_str} {h_verb} {facts['hynix_price']}원에 마감했습니다."
         report_text = re.sub(r'SK하이닉스는[\s\S]*?마감했습니다\.', h_replacement, report_text)
+
+    # Clean up Nikkei and Shanghai direction if hallucinated
+    lines = report_text.split('\n')
+    for i, line in enumerate(lines):
+        if "상해" in line or "상하이" in line:
+            if 'shanghai_ratio' in facts:
+                sh_verb = "상승" if facts['shanghai_ratio'] >= 0 else "하락"
+                wrong_sh_verb = "하락" if facts['shanghai_ratio'] >= 0 else "상승"
+                if wrong_sh_verb in line and sh_verb not in line:
+                    lines[i] = line.replace(wrong_sh_verb, sh_verb)
+                    lines[i] = lines[i].replace("내렸" if sh_verb=="상승" else "올랐", "올랐" if sh_verb=="상승" else "내렸")
+                    lines[i] = lines[i].replace("빠졌" if sh_verb=="상승" else "뛰었", "뛰었" if sh_verb=="상승" else "빠졌")
+        
+        if "닛케이" in line or "니케이" in line:
+            if 'nikkei_ratio' in facts:
+                nk_verb = "상승" if facts['nikkei_ratio'] >= 0 else "하락"
+                wrong_nk_verb = "하락" if facts['nikkei_ratio'] >= 0 else "상승"
+                if wrong_nk_verb in line and nk_verb not in line:
+                    lines[i] = line.replace(wrong_nk_verb, nk_verb)
+                    lines[i] = lines[i].replace("내렸" if nk_verb=="상승" else "올랐", "올랐" if nk_verb=="상승" else "내렸")
+                    lines[i] = lines[i].replace("빠졌" if nk_verb=="상승" else "뛰었", "뛰었" if nk_verb=="상승" else "빠졌")
+    report_text = '\n'.join(lines)
 
     naver_line = get_samsung_group_stocks_line()
     if naver_line:
@@ -574,7 +597,7 @@ def generate_report_with_gemini(report_type):
 검색 도구를 활용하여 "코스피 실시간 지수", "코스닥 실시간 지수", "삼성전자 실시간 주가", "SK하이닉스 실시간 주가", "상해종합지수 실시간" 등을 오늘 날짜({today_date}) 기준으로 검색하여 실시간(오후 2시 20분 근처) 수치를 알아내십시오.
 
 반드시 아래의 양식과 정보를 포함해야 합니다:
-1. 제목 형식: **Title** : [초안] 아시아 시황({today_short_slash})
+1. 제목 형식: **Title** : [초안] 아시아 시황({today_short_slash})(안티그래비티버전)
    본문 첫머리 및 각 표에 '장중 잠정' 또는 '잠정치'임을 반드시 명시하시오.
 
 중요 양식 및 구조 규칙 (반드시 준수):
@@ -619,7 +642,8 @@ def generate_report_with_gemini(report_type):
 - 만약 Google Finance 등 특정 금융 서비스에서 오늘 자 수치를 조회할 수 없거나 누락되어 있는 경우, Investing.com, Yahoo Finance 등 다른 공신력 있는 글로벌 금융 정보 사이트들의 최신 수치를 반드시 교차 참고하여 빈칸(공란)이나 누락 없이 모든 지수와 환율/금리 수치를 확실하게 기입하십시오.
 - 매일 검색 시, 한국 주식시장(코스피, 코스닥)에 대해 주요 글로벌 투자은행(IB, 특히 골드만삭스, 모건스탠리뿐만 아니라 JP모건, UBS 등)이 언급한 **최근 3일 이내의 코멘트 및 보고서 내용**을 함께 검색하여 본문에 1~2줄 내외로 자연스럽게 추가하십시오. 오래된 분석이나 3일을 초과한 과거 의견은 포함하지 마십시오.
 {export_instruction}
-- 일본과 중국 시황 내용이 반드시 포함되어야 합니다.
+- 일본과 중국 시황 내용이 반드시 포함되어야 합니다. 특히 일본과 중국 증시의 주요 섹터별 움직임에 대해서도 간단히 코멘트 해주세요.
+- 상해종합지수와 닛케이225의 등락(상승/하락) 방향을 앞서 제공한 [검증된 실시간 금융 API 데이터]와 반드시 일치시키십시오.
 """
         else:
             prompt = f"""
@@ -635,7 +659,7 @@ def generate_report_with_gemini(report_type):
 검색 도구를 활용하여 "코스피 마감 지수", "코스닥 마감 지수", "삼성전자 종가", "SK하이닉스 종가", "상해종합지수 마감" 등을 오늘 날짜({today_date}) 기준으로 검색하여 최종 마감 수치를 얻어내십시오.
 
 반드시 아래의 양식과 정보를 포함해야 합니다:
-1. 제목 형식: **Title** : 아시아 시황({today_short_slash})
+1. 제목 형식: **Title** : 아시아 시황({today_short_slash})(안티그래비티버전)
 
 중요 양식 및 구조 규칙 (반드시 준수):
 1. **절대로** "한국 증시 마감 상황"이나 "**한국 증시 마감 상황**" 과 같은 제목이나 섹션 헤더(**...**)를 넣지 마십시오.
@@ -680,7 +704,8 @@ def generate_report_with_gemini(report_type):
 - 만약 Google Finance 등 특정 금융 서비스에서 오늘 자 수치를 조회할 수 없거나 누락되어 있는 경우, Investing.com, Yahoo Finance 등 다른 공신력 있는 글로벌 금융 정보 사이트들의 최신 수치를 반드시 교차 참고하여 빈칸(공란)이나 누락 없이 모든 지수와 환율/금리 수치를 확실하게 기입하십시오.
 - 매일 검색 시, 한국 주식시장(코스피, 코스닥)에 대해 주요 글로벌 투자은행(IB, 특히 골드만삭스, 모건스탠리뿐만 아니라 JP모건, UBS 등)이 언급한 **최근 3일 이내의 코멘트 및 보고서 내용**을 함께 검색하여 본문에 1~2줄 내외로 자연스럽게 추가하십시오. 오래된 분석이나 3일을 초과한 과거 의견은 포함하지 마십시오.
 {export_instruction}
-- 일본과 중국 시황 내용이 반드시 포함되어야 합니다.
+- 일본과 중국 시황 내용이 반드시 포함되어야 합니다. 특히 일본과 중국 증시의 주요 섹터별 움직임에 대해서도 간단히 코멘트 해주세요.
+- 상해종합지수와 닛케이225의 등락(상승/하락) 방향을 앞서 제공한 [검증된 실시간 금융 API 데이터]와 반드시 일치시키십시오.
 """
     else:
         return None
@@ -913,7 +938,7 @@ def main():
                 log(msg)
                 try:
                     from send_email import send_via_gmail_smtp
-                    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+                    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
                     send_via_gmail_smtp(recipients, "[오류 알림] 아시아 시황 자동 생성 실패 (v2 실행 실패)", f"에러 내용:\n{msg}\n\n최근 실행 로그를 점검해 주십시오.")
                 except Exception as alert_ex:
                     log(f"Failed to send failure email alert: {alert_ex}")
@@ -922,7 +947,7 @@ def main():
             log(msg)
             try:
                 from send_email import send_via_gmail_smtp
-                recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+                recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
                 send_via_gmail_smtp(recipients, "[오류 알림] 아시아 시황 자동 생성 실패 (실행 예외)", f"에러 내용:\n{msg}\n\n최근 실행 로그를 점검해 주십시오.")
             except Exception as alert_ex:
                 log(f"Failed to send failure email alert: {alert_ex}")
@@ -931,7 +956,7 @@ def main():
         log(msg)
         try:
             from send_email import send_via_gmail_smtp
-            recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
+            recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
             send_via_gmail_smtp(recipients, "[오류 알림] 아시아 시황 자동 생성 실패 (소스 데이터 누락)", f"에러 내용:\n{msg}\n\n최근 실행 로그를 점검해 주십시오.")
         except Exception as alert_ex:
             log(f"Failed to send failure email alert: {alert_ex}")
