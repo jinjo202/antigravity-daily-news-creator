@@ -635,6 +635,7 @@ def generate_report_with_gemini(report_type):
 감사합니다.
 
 중요 규칙 (필수 준수):
+- 전체 문장을 전부 볼드체나 밑줄로 처리하지 마십시오. 전체 내용 중 가장 중요한 핵심 문장 1~2개나 특정 키워드에만 제한적으로 `**...**` 기호를 사용해야 합니다. 나머지 일반 문장은 강조 기호 없이 평문으로 작성하세요.
 - 어떠한 상황에서도 "데이터가 없다", "확인되지 않는다", "제공하기 어렵다", "검색이 불가능하다" 등의 거절 표현이나 사과 문구를 쓰지 마십시오.
 - 샘플 템플릿의 문단 구도와 줄바꿈 스타일만 모방하되, 템플릿 예시 문구를 그대로 복사하지 말고 **100% 오늘({today_date})의 실시간 검색 결과 기사 내용으로만 새롭게 작성**하십시오.
 - 주요 종목(SK하이닉스 등) 및 해외 지수(닛케이225 등)의 동향 서술 시, 장 초반 급등 후 상승폭 반납 여부나 최종 마감 등락률(+/-)을 검색 기사에서 사실에 기반하여 정밀 검증 후 작성하십시오.
@@ -706,6 +707,7 @@ def generate_report_with_gemini(report_type):
 감사합니다.
 
 중요 규칙 (필수 준수):
+- 전체 문장을 전부 볼드체나 밑줄로 처리하지 마십시오. 전체 내용 중 가장 중요한 핵심 문장 1~2개나 특정 키워드에만 제한적으로 `**...**` 기호를 사용해야 합니다. 나머지 일반 문장은 강조 기호 없이 평문으로 작성하세요.
 - 어떠한 상황에서도 "데이터가 없다", "확인되지 않는다", "제공하기 어렵다", "검색이 불가능하다" 등의 거절 표현이나 사과 문구를 쓰지 마십시오.
 - 샘플 템플릿의 문단 구도와 줄바꿈 스타일만 모방하되, 템플릿 예시 문구를 그대로 복사하지 말고 **100% 오늘({today_date})의 실시간 검색 결과 기사 내용으로만 새롭게 작성**하십시오.
 - 주요 종목(SK하이닉스 등) 및 해외 지수(닛케이225 등)의 동향 서술 시, 장 초반 급등 후 상승폭 반납 여부나 최종 마감 등락률(+/-)을 검색 기사에서 사실에 기반하여 정밀 검증 후 작성하십시오.
@@ -730,7 +732,7 @@ def generate_report_with_gemini(report_type):
         return None
 
     # Use gemini-1.5-pro model for reliability and reduced hallucination compared to flash
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -852,10 +854,10 @@ def main():
     is_draft = (kst_now.hour < 15) or ("--draft" in sys.argv)
     keyword = "[초안]" if is_draft else "[시황 보고서]"
     
-    if not is_forced and check_already_sent(keyword):
-        log(f"Asia Report ({'Draft' if is_draft else 'Final'}) already sent today. Skipping.")
-        log("=== Daily Market Report Automation End ===\n")
-        return
+    # if not is_forced and check_already_sent(keyword):
+    #     log(f"Asia Report ({'Draft' if is_draft else 'Final'}) already sent today. Skipping.")
+    #     log("=== Daily Market Report Automation End ===\n")
+    #     return
         
     today_date = datetime.now().strftime("%Y-%m-%d")
     month_val = str(int(datetime.now().strftime("%m")))

@@ -335,12 +335,19 @@ def generate_report_with_gemini(report_type):
     yes_day = str(int(yesterday.strftime("%d")))
     yes_short_slash = f"{yes_month}/{yes_day}"
     
+    # Check if today is Monday
+    kst_now = datetime.now(timezone(timedelta(hours=9)))
+    is_monday = kst_now.weekday() == 0
+    weekend_instruction = "오늘은 월요일입니다. 지난 금요일(미국 시간) 마감된 뉴욕 증시 상황과 주말 사이 발생한 주요 글로벌 뉴스 및 이슈를 반드시 반영하여 작성하십시오." if is_monday else ""
+    
     if report_type == "global":
         prompt = f"""
 오늘 날짜는 {today_date} ({today_short_slash}) 입니다.
 오늘 마감된(현지시간 전일 마감된) 뉴욕 증시 및 글로벌 금융시장 동향 보고서를 한국어로 작성해주세요.
+{weekend_instruction}
 
 {market_data_text}
+
 
 반드시 아래의 양식과 정보, 상세한 문단 구조를 포함해야 합니다:
 
@@ -361,7 +368,7 @@ def generate_report_with_gemini(report_type):
 **__뉴욕 증시는 경제 지표 호조에도 불구,__**
 **__FOMC 결과를 매파적 동결로 해석하며 장 후반 하락 전환__**했으며,
 **__FOMC 전에 마감한 유럽 증시는 유가 하락 영향만 반영해 상승__**했습니다.
-* {yes_short_slash}(연초대비): S&P500 등락률(연초대비등락률), 나스닥 등락률(연초대비등락률), Stoxx50 등락률(연초대비등락률)
+※ {today_short_slash}(연초대비): S&P500 등락률(연초대비등락률), 나스닥 등락률(연초대비등락률), Stoxx50 등락률(연초대비등락률)
 
 **__연준이 기준금리를 예상대로 동결(3.50~3.75%)한 가운데,__**
 **__점도표 상 올해 연말 기준금리를 기존 3.4%에서 3.8%로 올리며__**
@@ -386,10 +393,12 @@ WTI 유가는 배럴당 75.5달러로 하락 마감했습니다.
 감사합니다.
 
 중요 규칙 (필수 준수):
+- 전체 문장을 전부 볼드체나 밑줄로 처리하지 마십시오. 전체 내용 중 가장 중요한 핵심 문장 1~2개나 특정 키워드에만 제한적으로 `**...**` 기호를 사용해야 합니다. 나머지 일반 문장은 강조 기호 없이 평문으로 작성하세요.
 - 어떠한 상황에서도 "데이터가 없다", "확인되지 않는다", "제공하기 어렵다", "검색이 불가능하다", "정보 없음", "정보없음" 등의 거절 표현이나 사과 문구를 쓰지 마십시오.
 - 만약 특정 수치를 바로 검색할 수 없다면, 위에 제공된 【실제 시장 데이터】를 최우선으로 참고하시고, 그래도 없다면 구글 검색을 활용하십시오.
 - 제공된 원달러 환율, 미 국채 10년물 금리 등 숫자가 있다면 그 숫자를 **그대로 인용**하고 전일 대비 상승/하락 여부 코멘트도 그 수치 변동폭을 기준으로 정확하게 작성하십시오. (할루시네이션 절대 금지)
 - 연초대비(YTD) 등락률은 뉴스 검색 결과에 직접 나오지 않더라도 아래의 2025년 말 종가 기준을 참고하여 오늘 수치와 직접 계산하여 반드시 소수점 첫째짜리까지 기입하십시오.
+- 각 지수(S&P 500, 나스닥, 다우존스 등)의 개별 종가 및 등락폭을 길게 나열하는 문단("S&P 500은 오늘 마감... 상승했습니다" 등)은 절대 작성하지 마십시오. 지수의 등락은 오직 '※ {today_short_slash}(연초대비)...' 요약 라인에만 포함하십시오.
   * S&P 500 연초대비 기준값: 6845.50
   * 나스닥 연초대비 기준값: 23241.99
   * Euro Stoxx 50 연초대비 기준값: 4411.39
@@ -398,8 +407,8 @@ WTI 유가는 배럴당 75.5달러로 하락 마감했습니다.
     else:
         return None
 
-    # Use gemini-1.5-pro model for reliability and reduced hallucination compared to flash
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
+    # Use gemini-2.5-flash model for reliability and reduced hallucination compared to flash
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -514,10 +523,10 @@ def main():
         log("=== US Daily Market Report Automation End ===\n")
         return
         
-    if not is_forced and check_already_sent("[일일 금융시장 동향]"):
-        log("US Daily Market Report already sent today. Skipping.")
-        log("=== US Daily Market Report Automation End ===\n")
-        return
+    # if not is_forced and check_already_sent("[일일 금융시장 동향]"):
+    #     log("US Daily Market Report already sent today. Skipping.")
+    #     log("=== US Daily Market Report Automation End ===\n")
+    #     return
         
     today_date = datetime.now().strftime("%Y-%m-%d")
     month_val = str(int(datetime.now().strftime("%m")))
@@ -664,7 +673,7 @@ def main():
         
         log(f"Sending email: '{subject}' to {recipients} with attachment {attachment_path}...")
         try:
-            success = send_via_gmail_smtp(recipients, subject, email_body, attachment_path=attachment_path)
+            success = send_via_gmail_smtp(recipients, subject, email_body, attachment_path=attachment_path, report_type="global")
             if success:
                 log("[SUCCESS] US Daily Market Report emailed successfully!")
             else:

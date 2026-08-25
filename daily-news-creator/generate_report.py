@@ -384,52 +384,8 @@ def parse_raw_text(raw_text):
 # DOCUMENT BUILDER
 # ==============================================================================
 def wrap_korean_text(text, max_len=30):
-    """Wraps Korean text strictly by spaces, ensuring no line exceeds max_len characters.
-    Words are never split across lines. Certain price/index/YTD lines are kept on a single line."""
-    line_stripped = text.strip()
-    
-    # Check if this line should not be wrapped (YTD, Samsung stocks, exchange rates, bond yields)
-    if line_stripped.startswith('※') or (line_stripped.startswith('*') and '연초대비' in line_stripped):
-        return [text]
-    if line_stripped.startswith('(') and any(kw in line_stripped for kw in ['전자', '화재', '생명']):
-        return [text]
-    if ('△' in line_stripped or '+' in line_stripped or '%' in line_stripped) and any(kw in line_stripped for kw in ['원', 'bp', '%', 'pt', '지수', '상승', '하락', '금리']):
-        if len(line_stripped) < 75:
-            return [text]
-            
-    is_bold_header = text.startswith('**') and text.endswith('**')
-    if is_bold_header:
-        text = text[2:-2].strip()
-        
-    words = text.split()
-    lines = []
-    current_line = []
-    current_len = 0
-    
-    for word in words:
-        visible_word = word.replace("**", "").replace("__", "")
-        word_len = len(visible_word)
-        
-        extra = 1 if current_line else 0
-        if current_len + word_len + extra > max_len:
-            if current_line:
-                lines.append(" ".join(current_line))
-                current_line = [word]
-                current_len = word_len
-            else:
-                current_line = [word]
-                current_len = word_len
-        else:
-            current_line.append(word)
-            current_len += word_len + extra
-            
-    if current_line:
-        lines.append(" ".join(current_line))
-        
-    result = [l for l in lines if l]
-    if is_bold_header:
-        result = [f"**{l}**" for l in result]
-    return result
+    """(Deprecated) Do not use manual wrapping. Let Word handle it with wordWrap=1."""
+    return [text]
 
 def create_report_document(data, output_path):
     """Generates the daily market report Word document matching the sample style exactly."""
@@ -467,26 +423,32 @@ def create_report_document(data, output_path):
     for line in lines:
         line_stripped = line.strip()
         
-        # Skip title line at the top of the document (sample does not show it)
+        # Clean title prefix but keep the title text
+        if line_stripped.lower().startswith('title'):
+            colon_idx = line_stripped.find(':')
+            if colon_idx != -1:
+                line_stripped = line_stripped[colon_idx + 1:].strip()
+            else:
+                line_stripped = line_stripped[5:].strip()
+        
         line_clean = line_stripped.replace('*', '').strip()
-        if line_clean.lower().startswith('title') or line_clean.lower().startswith('**title'):
-            continue
         if line_stripped.startswith('**') and line_stripped.endswith('**') and '시황(' in line_stripped:
-            continue
+            line_stripped = line_clean
             
         # Empty line maps to empty paragraph (preserves spacing blocks)
         if not line_stripped:
             doc.add_paragraph()
             continue
             
-        # Wrap the line to max 30 characters
-        wrapped_lines = wrap_korean_text(line_stripped, max_len=30)
+        # Each line from the text becomes a single paragraph
+        wrapped_lines = [line_stripped]
         for w_line in wrapped_lines:
             p = doc.add_paragraph()
             p_format = p.paragraph_format
-            p_format.space_before = Pt(0)
-            p_format.space_after = Pt(8)
-            p_format.line_spacing = 1.15
+            p_format.space_before = Pt(3.75)
+            p_format.space_after = Pt(0)
+            p_format.line_spacing = 1.0
+            p_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
             
             # Enable kinsoku and wordWrap for Korean (한글 단어 잘림 방지)
             pPr = p._p.get_or_add_pPr()
@@ -498,9 +460,13 @@ def create_report_document(data, output_path):
             wordWrap.set(qn('w:val'), '1')
             pPr.append(wordWrap)
             
-            # Check if YTD line (starts with ※)
-            is_ytd = w_line.startswith('※')
-            color = RGBColor(0, 0, 255) if is_ytd else RGBColor(0, 0, 0)
+            # Check if YTD line or Samsung stocks line
+            is_samsung_line = '(' in line_clean and '전자' in line_clean and '화재' in line_clean and '생명' in line_clean
+            is_blue = '※' in line_clean or ('*' in line_clean and '연초대비' in line_clean) or is_samsung_line
+            color = RGBColor(0, 0, 255) if is_blue else RGBColor(0, 0, 0)
+            
+            if is_samsung_line:
+                p_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
             
             # Parse markdown bold (**...**)
             parts = re.split(r'(\*\*[^*]+\*\*)', w_line)

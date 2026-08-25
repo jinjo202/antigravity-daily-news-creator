@@ -11,104 +11,69 @@ from email import encoders
 GMAIL_ADDRESS = "devbotsender8282@gmail.com"
 GMAIL_PASSWORD = "lvjayqklnrkofjbj"  # Verified App Password
 
-def wrap_korean_text(text, max_len=30):
-    """Wraps Korean text strictly by spaces, ensuring no line exceeds max_len characters.
-    Words are never split across lines. Certain price/index/YTD lines are kept on a single line."""
-    line_stripped = text.strip()
-    
-    # Check if this line should not be wrapped (YTD, Samsung stocks, exchange rates, bond yields)
-    if line_stripped.startswith('※') or (line_stripped.startswith('*') and '연초대비' in line_stripped):
-        return [text]
-    if line_stripped.startswith('(') and any(kw in line_stripped for kw in ['전자', '화재', '생명']):
-        return [text]
-    if ('△' in line_stripped or '+' in line_stripped or '%' in line_stripped) and any(kw in line_stripped for kw in ['원', 'bp', '%', 'pt', '지수', '상승', '하락', '금리']):
-        if len(line_stripped) < 75:
-            return [text]
-            
-    is_bold_header = text.startswith('**') and text.endswith('**')
-    if is_bold_header:
-        text = text[2:-2].strip()
-        
-    words = text.split()
-    lines = []
-    current_line = []
-    current_len = 0
-    
-    for word in words:
-        visible_word = word.replace("**", "").replace("__", "")
-        word_len = len(visible_word)
-        
-        extra = 1 if current_line else 0
-        if current_len + word_len + extra > max_len:
-            if current_line:
-                lines.append(" ".join(current_line))
-                current_line = [word]
-                current_len = word_len
-            else:
-                current_line = [word]
-                current_len = word_len
-        else:
-            current_line.append(word)
-            current_len += word_len + extra
-            
-    if current_line:
-        lines.append(" ".join(current_line))
-        
-    result = [l for l in lines if l]
-    if is_bold_header:
-        result = [f"**{l}**" for l in result]
-    return result
-
-
-def convert_text_to_html(body_text):
+def convert_text_to_html(body_text, report_type="asia"):
     """Converts the plain text body to HTML matching the clean style exactly,
-    processing line-by-line, wrapping to max 25 characters,
-    and keeping font family as 바탕체 11pt."""
+    processing line-by-line, without manual wrapping,
+    and adapting font and spacing based on the report_type."""
     import re
     lines = body_text.splitlines()
     html_parts = []
+    
+    if report_type == "global":
+        font_size = "12pt"
+    else:
+        font_size = "11pt"
+        
+    line_height_css = "line-height:1.0; mso-line-height-rule:exactly;"
+    margin_style = "margin:3.75pt 0 0 0; mso-margin-top-alt:3.75pt; margin-bottom:0; mso-margin-bottom-alt:0;"
+        
+    font_family_style = "font-family:'바탕체', Batang, serif; mso-ascii-font-family:'바탕체'; mso-fareast-font-family:'바탕체'; mso-hansi-font-family:'바탕체';"
     
     for line in lines:
         line_stripped = line.strip()
         
         if not line_stripped:
             # Empty paragraph
-            html_parts.append('<p style="margin:0px 0px 8px 0px;line-height:1.15;text-align:left;font-family:바탕체,serif;font-size:11pt;color:black;"><br></p>')
+            html_parts.append(f'<p style="{margin_style} {line_height_css} text-align:left; {font_family_style} font-size:{font_size}; color:black;"><br></p>')
             continue
             
-        # Wrap the line to max 30 characters
-        wrapped_lines = wrap_korean_text(line_stripped, max_len=30)
-        for w_line in wrapped_lines:
-            # Parse markdown bold (**...**) and underline (__...__)
-            content = w_line
-            content = re.sub(r'\*\*__(.*?)__\*\*', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
-            content = re.sub(r'__\*\*(.*?)\*\*__', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
-            content = re.sub(r'\*\*(.*?)\*\*', r'<strong style="font-weight:bold">\1</strong>', content)
-            content = re.sub(r'__(.*?)__', r'<u style="text-decoration:underline">\1</u>', content)
-            
-            # Check if YTD line (starts with ※ or starts with * and contains 연초대비)
-            is_ytd = w_line.startswith('※') or (w_line.startswith('*') and '연초대비' in w_line)
-            color = 'blue' if is_ytd else 'black'
-            
-            # We align left for greeting, title, sign-offs, or headers
-            is_align_left = any(kw in w_line for kw in ["안녕하십니까", "감사합니다", "보고 드립니다", "동향입니다", "올림", "드림"]) or w_line.startswith('**') or w_line.lower().startswith('title')
+        content = line_stripped
+        
+        # Parse markdown bold (**...**) and underline (__...__)
+        content = re.sub(r'\*\*__(.*?)__\*\*', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
+        content = re.sub(r'__\*\*(.*?)\*\*__', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
+        content = re.sub(r'\*\*(.*?)\*\*', r'<strong style="font-weight:bold">\1</strong>', content)
+        content = re.sub(r'__(.*?)__', r'<u style="text-decoration:underline">\1</u>', content)
+        
+        is_samsung_line = '(' in line_stripped and '전자' in line_stripped and '화재' in line_stripped and '생명' in line_stripped
+        
+        # Check if YTD line (starts with ※ or starts with * and contains 연초대비) or Samsung stocks line
+        is_blue = '※' in line_stripped or ('*' in line_stripped and '연초대비' in line_stripped) or is_samsung_line
+        color = 'blue' if is_blue else 'black'
+        
+        # We align left for greeting, title, sign-offs, headers, or lines starting with (
+        is_align_left = any(kw in content for kw in ["안녕하십니까", "감사합니다", "보고 드립니다", "동향입니다", "올림", "드림"]) or content.lower().startswith('title') or (content.startswith('(') and not is_samsung_line)
+        
+        if is_samsung_line:
+            align_str = 'center'
+        else:
             align_str = 'left' if is_align_left else 'justify'
-            
-            # Keep leading whitespace using non-breaking spaces if any
-            m = re.match(r'^(\s+)', w_line)
-            leading_space = m.group(1) if m else ""
-            nbsp = leading_space.replace(" ", "&nbsp;")
-            
-            html_parts.append(
-                f'<p align="{align_str}" style="margin:0px 0px 8px 0px;line-height:1.15;text-align:{align_str};font-family:바탕체,serif;font-size:11pt;color:{color};word-break:break-all;">'
-                f'<span style="font-family:바탕체,serif;font-size:11pt;color:{color};">{nbsp}{content}</span>'
-                f'</p>'
-            )
+        
+        # Keep leading whitespace using non-breaking spaces if any
+        m = re.match(r'^(\s+)', line)
+        leading_space = m.group(1) if m else ""
+        nbsp = leading_space.replace(" ", "&nbsp;")
+        
+        html_parts.append(
+            f'<p align="{align_str}" style="{margin_style} {line_height_css} text-align:{align_str}; {font_family_style} font-size:{font_size}; color:{color}; word-break:keep-all; word-wrap:break-word;">'
+            f'<span style="{font_family_style} font-size:{font_size}; color:{color};">{nbsp}{content}</span>'
+            f'</p>'
+        )
         
     return "".join(html_parts)
 
 
-def send_via_gmail_smtp(recipients, subject, body, attachment_path=None):
+def send_via_gmail_smtp(recipients, subject, body, attachment_path=None, report_type="asia"):
     """Sends the report email via Gmail SMTP using the secure App Password."""
     print("=" * 60)
     print("[SMTP] starting email delivery...")
@@ -132,7 +97,7 @@ def send_via_gmail_smtp(recipients, subject, body, attachment_path=None):
         msg['Subject'] = subject
         
         # Convert plain text body to structured HTML with strict document wrapping and justification overrides
-        raw_html = convert_text_to_html(body)
+        raw_html = convert_text_to_html(body, report_type=report_type)
         html_body = f"""<!DOCTYPE html>
 <html xmlns:w="urn:schemas-microsoft-com:office:word" lang="ko">
 <head>
@@ -189,9 +154,9 @@ def send_via_gmail_smtp(recipients, subject, body, attachment_path=None):
         print(f"[SMTP ERROR] Failed to send email: {e}")
         return False
 
-def send_report_email(recipients, subject, body, attachment_path=None):
+def send_report_email(recipients, subject, body, attachment_path=None, report_type="asia"):
     """Orchestrator to send daily stock report via SMTP."""
-    return send_via_gmail_smtp(recipients, subject, body, attachment_path)
+    return send_via_gmail_smtp(recipients, subject, body, attachment_path, report_type)
 
 if __name__ == '__main__':
     # Test execution
