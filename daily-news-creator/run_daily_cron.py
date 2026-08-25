@@ -678,6 +678,8 @@ def generate_report_with_gemini(report_type):
 4. 아래의 샘플의 문단 구도와 스타일을 완벽히 복제하여 작성하십시오:
 
 [샘플 문서의 문단 구조 및 템플릿]
+**Title** : 아시아 시황({today_short_slash})(안티그래비티버전)
+
 사장님,
 
 금일 아시아 증시 시황 보고 드립니다.

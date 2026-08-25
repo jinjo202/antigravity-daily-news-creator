@@ -38,10 +38,10 @@ def format_paragraph(paragraph, space_before_pt, space_after_pt, left_indent_pt,
     p_format.space_after = Pt(space_after_pt)
     p_format.left_indent = Pt(left_indent_pt)
     p_format.first_line_indent = Pt(first_line_indent_pt)
-    p_format.line_spacing = 1.3  # Fixed line spacing 1.3
+    p_format.line_spacing = 1.0  # Fixed line spacing 1.0
     
-    # Use LEFT alignment to prevent wide spaces between words in Korean.
-    p_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    # Use JUSTIFY alignment for proper formatting.
+    p_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     
     # Enforce word wrap to prevent Hangul word splitting (한글 단어 잘림 방지)
     pPr = paragraph._p.get_or_add_pPr()

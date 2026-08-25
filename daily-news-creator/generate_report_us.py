@@ -38,7 +38,7 @@ def format_paragraph(paragraph, space_before_pt, space_after_pt, left_indent_pt,
     p_format.space_after = Pt(space_after_pt)
     p_format.left_indent = Pt(left_indent_pt)
     p_format.first_line_indent = Pt(first_line_indent_pt)
-    p_format.line_spacing = 1.3
+    p_format.line_spacing = 1.0
     p_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     
     # Enforce word wrap to prevent Hangul word splitting (한글 단어 잘림 방지)
