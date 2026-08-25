@@ -22,7 +22,7 @@ def generate_email_body(text):
         # Strip each line inside the paragraph, remove empty lines
         lines = [line.strip() for line in p.splitlines() if line.strip()]
         if lines:
-            cleaned_paragraphs.append("\n".join(lines))
+            cleaned_paragraphs.append(" ".join(lines))
     return "\n\n".join(cleaned_paragraphs)
 
 
@@ -68,8 +68,8 @@ def main():
     structured_data = parse_raw_text(report_text)
     create_report_document(structured_data, output_file)
     
-    # 4. Build Email Body (use report text directly)
-    email_body = report_text.strip()
+    # 4. Build Email Body (clean up intra-paragraph newlines for justify alignment)
+    email_body = generate_email_body(report_text)
     
     # Determine draft status (check arguments, fallback to KST hour)
     is_draft = "--draft" in sys.argv

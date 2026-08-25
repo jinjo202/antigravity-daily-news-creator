@@ -240,13 +240,15 @@ def convert_html_to_markdown(html_content):
         return None
 
 def generate_email_body(text):
-    """Clean up trailing spaces while preserving explicit single, double and triple newlines."""
-    lines = [line.rstrip() for line in text.splitlines()]
-    while lines and not lines[0]:
-        lines.pop(0)
-    while lines and not lines[-1]:
-        lines.pop()
-    return "\n".join(lines)
+    """Clean up text paragraphs to ensure double newlines between sections, and single spaces within sections."""
+    import re
+    paragraphs = re.split(r'\n\s*\n', text.strip())
+    cleaned_paragraphs = []
+    for p in paragraphs:
+        lines = [line.strip() for line in p.splitlines() if line.strip()]
+        if lines:
+            cleaned_paragraphs.append(" ".join(lines))
+    return "\n\n".join(cleaned_paragraphs)
 
 def parse_eml_to_markdown(eml_path):
     """Parses an EML file, extracting text/html and converting to markdown, or falling back to text/plain."""

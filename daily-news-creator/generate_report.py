@@ -182,14 +182,16 @@ def parse_raw_text(raw_text):
                 clean_line.startswith("주요")):
                 state = "OUTLOOK"
                 
+        # Always check for Samsung stock line regardless of state
+        if clean_line.startswith("(") and "전자" in clean_line and "화재" in clean_line and "생명" in clean_line:
+            stock_details_line = line
+            continue
+
         # Append lines (using original lines to preserve formatting like ** and __)
         if state == "ASIAN_MARKET":
             asian_lines.append(line)
         elif state == "KOREAN_MARKET":
-            if clean_line.startswith("(") and "전자" in clean_line:
-                stock_details_line = line
-            else:
-                korean_lines.append(line)
+            korean_lines.append(line)
         elif state == "FX_BONDS":
             fx_bond_lines.append(line)
         elif state == "OUTLOOK":

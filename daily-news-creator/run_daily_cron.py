@@ -510,30 +510,25 @@ def post_process_report(report_text, is_draft=False):
 
     naver_line = get_samsung_group_stocks_line()
     if naver_line:
-        pattern = r'\(전자[^)]*화재[^)]*생명[^)]*\)'
+        pattern = r'\([^\)]*전자[^\)]*화재[^\)]*생명[^\)]*\)'
         if re.search(pattern, report_text):
             report_text = re.sub(pattern, naver_line, report_text)
         else:
-            start_idx = -1
-            for h in ['**한국 증시 마감 상황**', '**한국 증시 장중 상황**', '한국 증시 마감 상황', '한국 증시 장중 상황']:
-                start_idx = report_text.find(h)
-                if start_idx != -1:
-                    break
-            
-            if start_idx != -1:
-                next_header = re.search(r'\n\s*(\*\*삼성전자|\*\* 주요 대형주|\*\*삼성전자, SK하이닉스|\*\*삼성전자/SK하이닉스|삼성전자, SK하이닉스)', report_text[start_idx:])
-                if next_header:
-                    insert_idx = start_idx + next_header.start()
-                    report_text = report_text[:insert_idx].rstrip() + f"\n{naver_line}\n\n" + report_text[insert_idx:].lstrip()
-                else:
-                    thanks_idx = report_text.find("감사합니다")
-                    if thanks_idx != -1:
-                        report_text = report_text[:thanks_idx].rstrip() + f"\n\n{naver_line}\n\n" + report_text[thanks_idx:]
+            # Append before 감사합니다
+            thanks_idx = report_text.find("감사합니다")
+            if thanks_idx != -1:
+                report_text = report_text[:thanks_idx].rstrip() + f"\n\n{naver_line}\n\n" + report_text[thanks_idx:]
             else:
-                thanks_idx = report_text.find("감사합니다")
-                if thanks_idx != -1:
-                    report_text = report_text[:thanks_idx].rstrip() + f"\n\n{naver_line}\n\n" + report_text[thanks_idx:]
-                
+                report_text += f"\n\n{naver_line}\n"
+
+    # Enforce title
+    if not report_text.lower().startswith('title') and not report_text.startswith('**Title'):
+        from datetime import datetime, timezone, timedelta
+        kst_now = datetime.now(timezone(timedelta(hours=9)))
+        month_val = str(int(kst_now.strftime("%m")))
+        day_val = str(int(kst_now.strftime("%d")))
+        report_text = f"**Title** : 아시아 시황({month_val}/{day_val})(안티그래비티버전)\n\n" + report_text
+
     return report_text.strip()
 
 def generate_report_with_gemini(report_type):
@@ -856,10 +851,10 @@ def main():
     is_draft = (kst_now.hour < 15) or ("--draft" in sys.argv)
     keyword = "[초안]" if is_draft else "[시황 보고서]"
     
-    # if not is_forced and check_already_sent(keyword):
-    #     log(f"Asia Report ({'Draft' if is_draft else 'Final'}) already sent today. Skipping.")
-    #     log("=== Daily Market Report Automation End ===\n")
-    #     return
+    if not is_forced and check_already_sent(keyword):
+        log(f"Asia Report ({'Draft' if is_draft else 'Final'}) already sent today. Skipping.")
+        log("=== Daily Market Report Automation End ===\n")
+        return
         
     today_date = datetime.now().strftime("%Y-%m-%d")
     month_val = str(int(datetime.now().strftime("%m")))
