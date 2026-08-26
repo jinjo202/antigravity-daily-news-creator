@@ -29,14 +29,22 @@ def convert_text_to_html(body_text, report_type="asia"):
         
     font_family_style = "font-family:'바탕체', Batang, serif; mso-ascii-font-family:'바탕체'; mso-fareast-font-family:'바탕체'; mso-hansi-font-family:'바탕체';"
     
+    margin_style_normal = "margin-top: 3.75pt; margin-bottom: 0;"
+    margin_style_tight = "margin-top: 0; margin-bottom: 0;"
+    
+    prev_was_empty = True
     for line in lines:
         line_stripped = line.strip()
         
         if not line_stripped:
             # Empty paragraph
-            html_parts.append(f'<p style="{margin_style} {line_height_css} text-align:left; {font_family_style} font-size:{font_size}; color:black;"><br></p>')
+            html_parts.append(f'<p style="{margin_style_normal} {line_height_css} text-align:left; {font_family_style} font-size:{font_size}; color:black;"><br></p>')
+            prev_was_empty = True
             continue
             
+        margin_style = margin_style_normal if prev_was_empty else margin_style_tight
+        prev_was_empty = False
+        
         content = line_stripped
         
         # Parse markdown bold (**...**) and underline (__...__)
@@ -48,7 +56,7 @@ def convert_text_to_html(body_text, report_type="asia"):
         is_samsung_line = '(' in line_stripped and '전자' in line_stripped and '화재' in line_stripped and '생명' in line_stripped
         
         # Check if YTD line (starts with ※ or starts with * and contains 연초대비) or Samsung stocks line
-        is_blue = '※' in line_stripped or ('*' in line_stripped and '연초대비' in line_stripped) or is_samsung_line
+        is_blue = line_stripped.startswith('※') or (line_stripped.startswith('*') and '연초대비' in line_stripped) or is_samsung_line
         color = 'blue' if is_blue else 'black'
         
         # We align left for greeting, title, sign-offs, headers, or lines starting with (

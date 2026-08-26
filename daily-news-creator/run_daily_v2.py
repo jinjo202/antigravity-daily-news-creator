@@ -13,23 +13,32 @@ def read_today_report(file_path):
     return content if content else None
 
 def generate_email_body(text):
-    """Clean up text paragraphs to ensure double newlines between sections, and single newlines within sections."""
+    """Clean up text paragraphs. For the Asia report, we must preserve manual line breaks."""
+    # First, strip the title line if it exists
+    lines = [line.rstrip() for line in text.splitlines()]
+    if lines and lines[0].lower().startswith('**title**'):
+        lines.pop(0)
+    
+    # Return the text as-is to preserve manual short lines (Enter keys)
+    text_no_title = "\n".join(lines).strip()
+    
+    # Ensure there is a blank line after '사장님,' if it isn't there
     import re
-    # Split the input text into paragraphs by blank lines (handling potential multiple blank lines)
-    paragraphs = re.split(r'\n\s*\n', text.strip())
-    cleaned_paragraphs = []
-    for p in paragraphs:
-        # Strip each line inside the paragraph, remove empty lines
-        lines = [line.strip() for line in p.splitlines() if line.strip()]
-        if lines:
-            cleaned_paragraphs.append(" ".join(lines))
-    return "\n\n".join(cleaned_paragraphs)
+    text_no_title = re.sub(r'^(사장님,)\s*([^\n])', r'\1\n\n\2', text_no_title, count=1, flags=re.MULTILINE)
+    
+    return text_no_title
 
 
 def main():
     workspace_dir = os.path.dirname(os.path.abspath(__file__))
     input_file = os.path.join(workspace_dir, "today_report.txt")
     
+    # Allow overriding input_file via sys.argv
+    for arg in sys.argv[1:]:
+        if not arg.startswith("--"):
+            input_file = os.path.abspath(arg)
+            break
+            
     # 1. Read report text
     report_text = read_today_report(input_file)
     if not report_text:
@@ -80,7 +89,7 @@ def main():
         is_draft = kst_now.hour < 15
         
     # Clean title_val to avoid duplicate prefixes
-    title_clean = title_val.replace("[초안]", "").replace("[시황 보고서]", "").strip()
+    title_clean = title_val.replace("[초안]", "").replace("[시황 보고서]", "").replace("(안티그래비티버전)", "").strip()
     if not title_clean:
         title_clean = f"아시아 및 국내 증시 시황 ({datetime.now().strftime('%m/%d')})"
         
@@ -90,7 +99,7 @@ def main():
         subject = f"[시황 보고서] {title_clean} (안티그래비티버전)"
     
     # 5. Send Email
-    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
+    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
     send_report_email(recipients, subject, email_body, output_file)
 
 if __name__ == '__main__':

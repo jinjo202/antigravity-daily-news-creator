@@ -423,6 +423,8 @@ def get_realtime_market_facts():
 
 def post_process_report(report_text, is_draft=False):
     import re
+    from datetime import datetime, timezone, timedelta
+    
     # Clean out AI meta-commentary in parentheses (e.g. (이는 검색된 ...), (구체적인 변동 수치는 ...))
     meta_patterns = [
         r'\([^)]*검색된[^)]*\)',
@@ -523,7 +525,6 @@ def post_process_report(report_text, is_draft=False):
 
     # Enforce title
     if not report_text.lower().startswith('title') and not report_text.startswith('**Title'):
-        from datetime import datetime, timezone, timedelta
         kst_now = datetime.now(timezone(timedelta(hours=9)))
         month_val = str(int(kst_now.strftime("%m")))
         day_val = str(int(kst_now.strftime("%d")))
@@ -944,7 +945,7 @@ def main():
                 venv_python = sys.executable
             v2_script = os.path.join(workspace_dir, "run_daily_v2.py")
             
-            args = [venv_python, v2_script]
+            args = [venv_python, v2_script, today_report_path]
             if is_draft:
                 args.append("--draft")
             else:
@@ -962,7 +963,7 @@ def main():
                 log(msg)
                 try:
                     from send_email import send_via_gmail_smtp
-                    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
+                    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
                     send_via_gmail_smtp(recipients, "[오류 알림] 아시아 시황 자동 생성 실패 (v2 실행 실패)", f"에러 내용:\n{msg}\n\n최근 실행 로그를 점검해 주십시오.")
                 except Exception as alert_ex:
                     log(f"Failed to send failure email alert: {alert_ex}")
@@ -971,7 +972,7 @@ def main():
             log(msg)
             try:
                 from send_email import send_via_gmail_smtp
-                recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
+                recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
                 send_via_gmail_smtp(recipients, "[오류 알림] 아시아 시황 자동 생성 실패 (실행 예외)", f"에러 내용:\n{msg}\n\n최근 실행 로그를 점검해 주십시오.")
             except Exception as alert_ex:
                 log(f"Failed to send failure email alert: {alert_ex}")
@@ -980,7 +981,7 @@ def main():
         log(msg)
         try:
             from send_email import send_via_gmail_smtp
-            recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
+            recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
             send_via_gmail_smtp(recipients, "[오류 알림] 아시아 시황 자동 생성 실패 (소스 데이터 누락)", f"에러 내용:\n{msg}\n\n최근 실행 로그를 점검해 주십시오.")
         except Exception as alert_ex:
             log(f"Failed to send failure email alert: {alert_ex}")

@@ -240,15 +240,13 @@ def convert_html_to_markdown(html_content):
         return None
 
 def generate_email_body(text):
-    """Clean up text paragraphs to ensure double newlines between sections, and single spaces within sections."""
-    import re
-    paragraphs = re.split(r'\n\s*\n', text.strip())
-    cleaned_paragraphs = []
-    for p in paragraphs:
-        lines = [line.strip() for line in p.splitlines() if line.strip()]
-        if lines:
-            cleaned_paragraphs.append(" ".join(lines))
-    return "\n\n".join(cleaned_paragraphs)
+    """Clean up trailing spaces while preserving explicit single, double and triple newlines."""
+    lines = [line.rstrip() for line in text.splitlines()]
+    while lines and not lines[0]:
+        lines.pop(0)
+    while lines and not lines[-1]:
+        lines.pop()
+    return "\n".join(lines)
 
 def parse_eml_to_markdown(eml_path):
     """Parses an EML file, extracting text/html and converting to markdown, or falling back to text/plain."""
@@ -370,7 +368,8 @@ def generate_report_with_gemini(report_type):
 **뉴욕 증시는 경제 지표 호조에도 불구,**
 FOMC 결과를 매파적 동결로 해석하며 장 후반 하락 전환했으며,
 FOMC 전에 마감한 유럽 증시는 유가 하락 영향만 반영해 상승했습니다.
-※ {today_short_slash}(연초대비): S&P500 등락률(연초대비등락률), 나스닥 등락률(연초대비등락률), Stoxx50 등락률(연초대비등락률)
+※ {today_short_slash}(연초대비): S&P500 일간수익률(YTD수익률), 나스닥 일간수익률(YTD수익률), Stoxx50 일간수익률(YTD수익률)
+예시: ※ {today_short_slash}(연초대비): S&P500 +0.5%(+12.1%), 나스닥 +0.8%(+12.5%), Stoxx50 +0.2%(+11.2%)
 
 연준이 기준금리를 예상대로 동결(3.50~3.75%)한 가운데,
 점도표 상 올해 연말 기준금리를 기존 3.4%에서 3.8%로 올리며
@@ -403,7 +402,7 @@ WTI 유가는 배럴당 75.5달러로 하락 마감했습니다.
 - 각 지수(S&P 500, 나스닥, 다우존스 등)의 개별 종가 및 등락폭을 길게 나열하는 문단("S&P 500은 오늘 마감... 상승했습니다" 등)은 절대 작성하지 마십시오. 지수의 등락은 오직 '※ {today_short_slash}(연초대비)...' 요약 라인에만 포함하십시오.
   * S&P 500 연초대비 기준값: 6845.50
   * 나스닥 연초대비 기준값: 23241.99
-  * Euro Stoxx 50 연초대비 기준값: 4411.39
+  * Euro Stoxx 50 연초대비 기준값: 5796.22
   * 계산법: ((오늘 종가 - 기준값) / 기준값) * 100
 """
     else:
@@ -671,7 +670,7 @@ def main():
         except Exception as docx_ex:
             log(f"[ERROR] Failed to generate Word document: {docx_ex}")
             
-        recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
+        recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
         
         log(f"Sending email: '{subject}' to {recipients} with attachment {attachment_path}...")
         try:
@@ -682,7 +681,7 @@ def main():
                 msg = "[ERROR] Email delivery failed."
                 log(msg)
                 try:
-                    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
+                    recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
                     send_via_gmail_smtp(recipients, "[오류 알림] 일일 금융시장 동향 이메일 전송 실패", f"에러 내용: {msg}\n\n최근 실행 로그를 점검해 주십시오.")
                 except Exception as alert_ex:
                     log(f"Failed to send failure email alert: {alert_ex}")
@@ -690,7 +689,7 @@ def main():
             msg = f"[ERROR] Failed to send email: {ex}"
             log(msg)
             try:
-                recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
+                recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
                 send_via_gmail_smtp(recipients, "[오류 알림] 일일 금융시장 동향 이메일 전송 예외 발생", f"에러 내용: {msg}\n\n최근 실행 로그를 점검해 주십시오.")
             except Exception as alert_ex:
                 log(f"Failed to send failure email alert: {alert_ex}")
@@ -698,7 +697,7 @@ def main():
         msg = "[CRITICAL ERROR] No source report data found. Aborting."
         log(msg)
         try:
-            recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com", "jeonghwan.lim@samsung.com"]
+            recipients = ["jin.jo202@gmail.com", "jinyoung22.jo@samsung.com"]
             send_via_gmail_smtp(recipients, "[오류 알림] 일일 금융시장 동향 자동 생성 실패 (소스 데이터 누락)", f"에러 내용: {msg}\n\n최근 실행 로그를 점검해 주십시오.")
         except Exception as alert_ex:
             log(f"Failed to send failure email alert: {alert_ex}")
