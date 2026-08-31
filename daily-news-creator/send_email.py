@@ -13,10 +13,11 @@ GMAIL_PASSWORD = "lvjayqklnrkofjbj"  # Verified App Password
 
 def convert_text_to_html(body_text, report_type="asia"):
     """Converts the plain text body to HTML matching the clean style exactly,
-    processing line-by-line, without manual wrapping,
-    and adapting font and spacing based on the report_type."""
+    processing paragraph-by-paragraph, using <br> for line breaks within paragraphs
+    to ensure Outlook does not add extra spacing between lines."""
     import re
-    lines = body_text.splitlines()
+    # Split the input text into paragraphs by blank lines
+    paragraphs = re.split(r'\n\s*\n', body_text.strip())
     html_parts = []
     
     if report_type == "global":
@@ -25,60 +26,70 @@ def convert_text_to_html(body_text, report_type="asia"):
         font_size = "11pt"
         
     line_height_css = "line-height:1.0; mso-line-height-rule:exactly;"
+    # margin-top 3.75pt (5px) creates the gap between paragraphs.
     margin_style = "margin:3.75pt 0 0 0; mso-margin-top-alt:3.75pt; margin-bottom:0; mso-margin-bottom-alt:0;"
         
     font_family_style = "font-family:'바탕체', Batang, serif; mso-ascii-font-family:'바탕체'; mso-fareast-font-family:'바탕체'; mso-hansi-font-family:'바탕체';"
     
-    margin_style_normal = "margin-top: 3.75pt; margin-bottom: 0;"
-    margin_style_tight = "margin-top: 0; margin-bottom: 0;"
-    
-    prev_was_empty = True
-    for line in lines:
-        line_stripped = line.strip()
-        
-        if not line_stripped:
-            # Empty paragraph
-            html_parts.append(f'<p style="{margin_style_normal} {line_height_css} text-align:left; {font_family_style} font-size:{font_size}; color:black;"><br></p>')
-            prev_was_empty = True
+    for p in paragraphs:
+        if not p.strip():
             continue
             
-        margin_style = margin_style_normal if prev_was_empty else margin_style_tight
-        prev_was_empty = False
+        lines = p.splitlines()
+        p_html_lines = []
         
-        content = line_stripped
+        is_samsung_line = False
+        is_align_left = False
+        p_color = 'black'
+        align_str = 'justify'
         
-        # Parse markdown bold (**...**) and underline (__...__)
-        content = re.sub(r'\*\*__(.*?)__\*\*', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
-        content = re.sub(r'__\*\*(.*?)\*\*__', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
-        content = re.sub(r'\*\*(.*?)\*\*', r'<strong style="font-weight:bold">\1</strong>', content)
-        content = re.sub(r'__(.*?)__', r'<u style="text-decoration:underline">\1</u>', content)
-        
-        is_samsung_line = '(' in line_stripped and '전자' in line_stripped and '화재' in line_stripped and '생명' in line_stripped
-        
-        # Check if YTD line (starts with ※ or starts with * and contains 연초대비) or Samsung stocks line
-        is_blue = line_stripped.startswith('※') or (line_stripped.startswith('*') and '연초대비' in line_stripped) or is_samsung_line
-        color = 'blue' if is_blue else 'black'
-        
-        # We align left for greeting, title, sign-offs, headers, or lines starting with (
-        is_align_left = any(kw in content for kw in ["안녕하십니까", "감사합니다", "보고 드립니다", "동향입니다", "올림", "드림"]) or content.lower().startswith('title') or (content.startswith('(') and not is_samsung_line)
-        
+        for line in lines:
+            line_stripped = line.strip()
+            if not line_stripped:
+                continue
+                
+            content = line_stripped
+            
+            # Parse markdown bold (**...**) and underline (__...__)
+            content = re.sub(r'\*\*__(.*?)__\*\*', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
+            content = re.sub(r'__\*\*(.*?)\*\*__', r'<strong style="font-weight:bold"><u style="text-decoration:underline">\1</u></strong>', content)
+            content = re.sub(r'\*\*(.*?)\*\*', r'<strong style="font-weight:bold">\1</strong>', content)
+            content = re.sub(r'__(.*?)__', r'<u style="text-decoration:underline">\1</u>', content)
+            
+            _is_samsung = '(' in line_stripped and '전자' in line_stripped and '화재' in line_stripped and '생명' in line_stripped
+            
+            # Check if YTD line or Samsung stocks line
+            _is_blue = line_stripped.startswith('※') or (line_stripped.startswith('*') and '연초대비' in line_stripped) or _is_samsung
+            line_color = 'blue' if _is_blue else 'black'
+            
+            # Determine alignment
+            _is_align_left = any(kw in content for kw in ["안녕하십니까", "감사합니다", "보고 드립니다", "동향입니다", "올림", "드림"]) or content.lower().startswith('title') or (content.startswith('(') and not _is_samsung)
+            
+            if _is_samsung: is_samsung_line = True
+            if _is_blue: p_color = 'blue'
+            if _is_align_left: is_align_left = True
+            
+            m = re.match(r'^(\s+)', line)
+            leading_space = m.group(1) if m else ""
+            nbsp = leading_space.replace(" ", "&nbsp;")
+            
+            p_html_lines.append(f'<span style="{font_family_style} font-size:{font_size}; color:{line_color};">{nbsp}{content}</span>')
+            
         if is_samsung_line:
             align_str = 'center'
-        else:
-            align_str = 'left' if is_align_left else 'justify'
-        
-        # Keep leading whitespace using non-breaking spaces if any
-        m = re.match(r'^(\s+)', line)
-        leading_space = m.group(1) if m else ""
-        nbsp = leading_space.replace(" ", "&nbsp;")
+        elif is_align_left:
+            align_str = 'left'
+            
+        # Join lines within the paragraph with <br>
+        joined_lines = "<br>\n".join(p_html_lines)
         
         html_parts.append(
-            f'<p align="{align_str}" style="{margin_style} {line_height_css} text-align:{align_str}; {font_family_style} font-size:{font_size}; color:{color}; word-break:keep-all; word-wrap:break-word;">'
-            f'<span style="{font_family_style} font-size:{font_size}; color:{color};">{nbsp}{content}</span>'
+            f'<p align="{align_str}" style="{margin_style} {line_height_css} text-align:{align_str}; {font_family_style} font-size:{font_size}; color:{p_color}; word-break:keep-all; word-wrap:break-word;">\n'
+            f'{joined_lines}\n'
             f'</p>'
         )
         
-    return "".join(html_parts)
+    return "\n".join(html_parts)
 
 
 def send_via_gmail_smtp(recipients, subject, body, attachment_path=None, report_type="asia"):
